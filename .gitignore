@@ -1,0 +1,21 @@
+# Python bytecode. gen_simple_room.py is imported by the diagnostic tools, so a
+# __pycache__ appears next to it as soon as any tool runs.
+__pycache__/
+*.py[cod]
+
+# colcon output, in case the repo is cloned directly into a workspace root
+build/
+install/
+log/
+
+# Editor and OS leftovers
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.DS_Store
+
+# RViz writes the config back when you save from inside the app; keep the
+# versioned layouts and ignore the backups.
+*.rviz.bak
