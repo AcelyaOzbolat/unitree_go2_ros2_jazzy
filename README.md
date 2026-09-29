@@ -40,7 +40,7 @@ what actually runs. For the physical robot's specifications see
 
 The gait limits are the ones that matter in practice. Command more than these and
 the controller clips the request, the gait degrades, and the robot can end up on
-its back — see [Usage](#teleoperation).
+its back — see [Quick start](#quick-start).
 
 ### The CHAMP controller
 
@@ -218,42 +218,15 @@ The diagnostic tools read the same definition, so they stay in sync automaticall
 
 ## Quick start
 
-Three terminals is two too many, so the stack comes up in two:
+Make the robot walk. Everything else in this repository is built on top of this
+working, so it is worth confirming first.
 
 ```bash
 # Terminal 1 — simulator, robot, controllers
 ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
 # wait for: joint_group_effort_controller ... active   (~35 s)
 
-# Terminal 2 — localization + navigation + RViz
-ros2 launch unitree_go2_sim bringup_2d.launch.py
-```
-
-This runs on the map that ships with the repository — localization and navigation
-only. Building a map yourself is a separate step, in [Usage](#mapping-a-new-world).
-
-RViz opens after about 20 seconds. Press **2D Goal Pose**, click a point on the
-open grey floor, drag to set the heading, release. The robot plans and walks
-there.
-
-<p align="center">
-  <img src="docs/img/navigation.png" alt="Nav2 planning a path across the course" width="640">
-  <br>
-  <em>A goal in the far corner. The blue line is NavFn's global plan, curving around
-  the obstacles it knows from the map; the coloured patch is the local costmap, built
-  live from the laser as the robot moves. Green dots are AMCL's particles.</em>
-</p>
-
-Stopping everything cleanly matters more than usual here — see
-[Stale processes](#stale-processes).
-
----
-
-## Usage
-
-### Teleoperation
-
-```bash
+# Terminal 2 — drive it
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -p speed:=0.15 -p turn:=0.25
 ```
@@ -263,7 +236,21 @@ The speed arguments are deliberate. `gait.yaml` caps the robot at 0.3 m/s and
 command and the gait degrades. Stop before turning; stepping straight from
 forward motion into a hard turn is what puts this robot on its back.
 
-### Mapping a new world
+From here, [Usage](#usage) goes through the stack one stage at a time: build a
+map, localize on it, then hand the robot to Nav2.
+
+Stopping everything cleanly matters more than usual here — see
+[Stale processes](#stale-processes).
+
+---
+
+## Usage
+
+Each stage below builds on the one before it, and each is worth running on its own
+before the next: a map you do not trust makes localization look broken, and
+localization you have not checked makes Nav2 look broken.
+
+### 1. Mapping a new world
 
 ```bash
 # Terminal 1
@@ -293,7 +280,7 @@ ros2 run nav2_map_server map_saver_cli -f <path>/unitree_go2_sim/maps/my_map
   of a real surface, and every surface in the room is represented.</em>
 </p>
 
-### Localization only
+### 2. Localization only
 
 ```bash
 ros2 launch unitree_go2_sim localization_2d.launch.py \
@@ -319,13 +306,27 @@ Then drive a few metres; the cloud converges.
   through the room, which is what a filter that has found itself looks like.</em>
 </p>
 
-### Full navigation
+### 3. Full navigation
 
 ```bash
 ros2 launch unitree_go2_sim bringup_2d.launch.py
 ```
 
-Localization and navigation in the right order. The order is a hard dependency:
+With no `map:=` argument this uses the map that ships with the repository, so it
+works before you have built one of your own.
+
+RViz opens after about 20 seconds. Press **2D Goal Pose**, click a point on the
+open grey floor, drag to set the heading, release. The robot plans and walks there.
+
+<p align="center">
+  <img src="docs/img/navigation.png" alt="Nav2 planning a path across the course" width="640">
+  <br>
+  <em>A goal in the far corner. The blue line is NavFn's global plan, curving around
+  the obstacles it knows from the map; the coloured patch is the local costmap, built
+  live from the laser as the robot moves. Green dots are AMCL's particles.</em>
+</p>
+
+Localization and navigation come up in the right order. The order is a hard dependency:
 without `map_server` there is no `/map` and no map frame, so every Nav2 costmap
 waits on a transform that never arrives and the lifecycle manager eventually
 gives up. Nothing in that error says "localization is not running", which is why
