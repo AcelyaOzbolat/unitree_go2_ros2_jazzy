@@ -1,0 +1,49 @@
+# Flattens the Velodyne VLP-16 cloud into a 2D LaserScan for slam_toolbox / AMCL.
+#
+# target_frame is base_footprint on purpose: base_to_footprint_ekf keeps that frame
+# gravity-aligned using the IMU, so the scan plane stays horizontal while the trunk
+# pitches and rolls during the gait. Slicing in base_link instead would rock the
+# slice up and down with every step and paint phantom obstacles into the map.
+pointcloud_to_laserscan:
+  ros__parameters:
+    target_frame: base_footprint
+    transform_tolerance: 0.05
+
+    # Height band, measured from the ground (base_footprint z = 0).
+    # The Velodyne sits ~0.34 m up with a +/-15 deg vertical FOV, so its downward
+    # rays reach the floor from ~1.3 m out; min_height discards those returns.
+    # 0.25, not 0.15. base_footprint is kept level by the IMU, but the correction
+    # lags during a stride and a couple of degrees of residual tilt lifts distant
+    # floor returns into the slice. At 2.5 m a 3.7 deg error puts the floor at
+    # 0.16 m - just over a 0.15 m threshold, which is exactly where the phantom
+    # obstacles were appearing: measured 0 while standing still, 61 per costmap
+    # update while walking, clustered around 2.5 m from the robot. 0.25 m needs
+    # 5.7 deg at that range to break through. Nothing in this course is shorter
+    # than 0.8 m, so the higher floor costs no real detections.
+    min_height: 0.25
+    # Above the 1.5 m wall tops on purpose. The VLP-16's beams fan out vertically,
+    # so a beam that grazes the top of a 0.9 m crate at 3 m is already ~1.5 m up
+    # by the time it reaches a wall at 6 m. With a lower ceiling those returns were
+    # discarded, that azimuth reported +inf, and slam_toolbox read the +inf as
+    # "free all the way to range_max" - the spokes radiating through the walls.
+    # Nothing in this world hangs overhead, so a tall band picks up nothing false.
+    max_height: 1.60
+
+    angle_min: -3.14159     # -180 deg
+    angle_max: 3.14159      # +180 deg
+    # MUST be wider than the sensor's own 0.818 deg spacing. Matching it exactly
+    # left some bins with no sample at all; with use_inf those became +inf, which
+    # slam_toolbox reads as "free all the way to range_max" and carves rays
+    # straight through the walls - the star-shaped spokes in the map. At 1.0 deg
+    # every output bin is guaranteed to contain at least one input sample.
+    angle_increment: 0.01745 # 1.0 deg (sensor gives 0.818 deg)
+    scan_time: 0.1          # sensor runs at 10 Hz
+    range_min: 0.5          # VLP-16 minimum range in the SDF
+    range_max: 20.0
+
+    # Report out-of-range as +inf rather than dropping the ray, so slam_toolbox and
+    # the costmaps can clear free space along those beams.
+    use_inf: true
+    inf_epsilon: 1.0
+
+    concurrency_level: 1
