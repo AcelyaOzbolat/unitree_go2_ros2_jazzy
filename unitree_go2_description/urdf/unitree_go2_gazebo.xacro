@@ -36,7 +36,9 @@
     <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
       <odom_frame>odom</odom_frame>
       <robot_base_frame>base_link</robot_base_frame>
-      <odom_topic>/odom</odom_topic>
+      <!-- Ground truth odometry. Deliberately not on /odom, which belongs to the
+           footprint_to_odom_ekf output. -->
+      <odom_topic>/odom/ground_truth</odom_topic>
       <odom_publish_frequency>50</odom_publish_frequency>
     </plugin>
   </gazebo>
@@ -46,7 +48,10 @@
     <sensor name="imu_sensor" type="imu">
       <always_on>true</always_on>
       <update_rate>100</update_rate>
-      <visualize>true</visualize>
+      <!-- Off by default: Gazebo draws sensor helper geometry over the robot,
+           which clutters the view and shows up in screenshots. RViz visualises
+           the same data properly. Set to true if you want it while debugging. -->
+      <visualize>false</visualize>
       <topic>imu/data</topic>
       <gz_frame_id>imu_link</gz_frame_id>
       <imu>
@@ -115,7 +120,7 @@
       <gz_frame_id>camera_link</gz_frame_id>
       <always_on>1</always_on>
       <update_rate>10</update_rate>
-      <visualize>1</visualize>
+      <visualize>0</visualize>
       <topic>rgb_image</topic>
     </sensor>
   </gazebo>

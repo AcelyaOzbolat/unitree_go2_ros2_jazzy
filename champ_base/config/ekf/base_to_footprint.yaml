@@ -14,6 +14,14 @@ base_to_footprint_ekf:
     #ax    , ay    , az
 
     pose0: base_to_footprint_pose
+    # Yaw stays TRUE here, but only from this pose - not from the IMU below.
+    # base_footprint is base_link projected onto the ground, so the yaw between
+    # them is zero by definition, and state_estimation publishes exactly 0.00 deg
+    # here (measured), which pins it. Feeding the IMU's absolute heading in
+    # instead put the robot's whole heading into base_footprint -> base_link
+    # (measured -78 deg); switching yaw off entirely was worse still, because an
+    # unobserved yaw state just random-walks (it reached -102 deg), and the laser
+    # scan - which reaches base_footprint via base_link - got rotated with it.
     pose0_config: [true,  true,  true,
                   true,  true,  true,
                   false, false, false,
@@ -26,10 +34,17 @@ base_to_footprint_ekf:
     #               true, true, true,
     #               false, false, false,
     #               false, false, false]
+    # Linear acceleration is deliberately OFF. robot_localization integrates it
+    # into position, and with remove_gravitational_acceleration unset the constant
+    # ~9.81 m/s^2 gets integrated too, so the filter fought pose0 and reported
+    # base_link about twice as high as it really is (0.42 m against a true
+    # 0.233 m), dragging base_footprint below the floor. pose0 already supplies
+    # the height from leg kinematics; the IMU is only needed for attitude here.
     imu0_config: [false, false, false,
-                  true, true, true,    # Use orientation (roll, pitch, yaw)
+                  true, true, false,   # roll and pitch only - yaw belongs to odom
                   false, false, false,
-                  true, true, true,    # Use angular velocity (vroll, vpitch, vyaw)
-                  true, true, true]    # Use linear acceleration (ax, ay, az)
+                  true, true, false,   # vroll and vpitch only - not vyaw
+                  false, false, false] # linear acceleration - see note above
+    imu0_remove_gravitational_acceleration: true
     odom_frame: base_footprint
     world_frame: base_footprint

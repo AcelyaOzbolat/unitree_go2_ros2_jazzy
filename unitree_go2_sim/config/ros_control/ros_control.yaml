@@ -1,7 +1,7 @@
 controller_manager:
   ros__parameters:
     use_sim_time: true
-    update_rate: 250  # Hz
+    update_rate: 100  # Hz
 
     # Increase the controller switch timeout
     controller_manager_timeout: 10.0  # seconds (default is 5.0)
@@ -42,8 +42,8 @@ joint_group_effort_controller:
     allow_partial_joints_goal: true
     
     # Important settings for controller stability
-    state_publish_rate: 100.0
-    action_monitor_rate: 20.0
+    state_publish_rate: 50.0
+    action_monitor_rate: 10.0
     
     constraints:
       stopped_velocity_tolerance: 0.01
@@ -52,20 +52,19 @@ joint_group_effort_controller:
     # Default settings that can help with stability
     hold_trajectory_duration: 0.0
     action_tolerance: 1.0
-    
     gains:
-      lf_hip_joint        : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      lf_upper_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      lf_lower_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rf_hip_joint        : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rf_upper_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rf_lower_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      lh_hip_joint        : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      lh_upper_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      lh_lower_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rh_hip_joint        : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rh_upper_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
-      rh_lower_leg_joint  : {p: 100.0, i: 0.2, d: 1.0, i_clamp: 2.5}
+      lf_hip_joint        : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      lf_upper_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      lf_lower_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rf_hip_joint        : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rf_upper_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rf_lower_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      lh_hip_joint        : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      lh_upper_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      lh_lower_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rh_hip_joint        : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rh_upper_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
+      rh_lower_leg_joint  : {p: 120.0, i: 0.2, d: 1.2, i_clamp: 2.5}
       # {p: 67.5, d: 0.3, i: 0.1, i_clamp: 1.5}
     # action_monitor_rate: 10.0 # Defaults to 20
     # state_publish_rate: 10.0 # Defaults to 50

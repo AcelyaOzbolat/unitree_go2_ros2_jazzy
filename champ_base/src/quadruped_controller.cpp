@@ -81,7 +81,12 @@ QuadrupedController::QuadrupedController():
         joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
     }
 
-    if(publish_foot_contacts_ && !in_gazebo_)
+    // Not gated on in_gazebo_: this simulation has no foot contact sensors, so the
+    // gait-phase fallback below is the only source of contacts. Without it the
+    // state_estimation synchroniser (joint_states + foot_contacts) never fires and
+    // base_footprint ends up ~0.4 m below the floor. Joint states stay gated,
+    // because in Gazebo joint_state_broadcaster already publishes the real ones.
+    if(publish_foot_contacts_)
     {
         foot_contacts_publisher_   = this->create_publisher<champ_msgs::msg::ContactsStamped>("foot_contacts", 10);
     }
@@ -187,7 +192,7 @@ void QuadrupedController::publishJoints_(float target_joints[12])
 
 void QuadrupedController::publishFootContacts_(bool foot_contacts[4])
 {
-    if(publish_foot_contacts_ && !in_gazebo_)
+    if(publish_foot_contacts_)
     {
         champ_msgs::msg::ContactsStamped contacts_msg;
         contacts_msg.header.stamp = clock_.now();

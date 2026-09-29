@@ -81,7 +81,7 @@
                 </noise>
                 <frame_id>velodyne</frame_id>
             </lidar>
-            <visualize>true</visualize>
+            <visualize>false</visualize>
 
             <always_on>1</always_on>
         </sensor>

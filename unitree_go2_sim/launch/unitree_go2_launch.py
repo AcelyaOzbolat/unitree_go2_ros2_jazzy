@@ -3,6 +3,7 @@ import os
 import launch_ros
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -33,7 +34,7 @@ def generate_launch_description():
     gait_config = os.path.join(unitree_go2_sim, "config/gait/gait.yaml")
     links_config = os.path.join(unitree_go2_sim, "config/links/links.yaml")
     default_model_path = os.path.join(unitree_go2_description, "urdf/unitree_go2_robot.xacro")
-    default_world_path = os.path.join(unitree_go2_description, "worlds/default.sdf")
+    default_world_path = os.path.join(unitree_go2_description, "worlds/simple_room.sdf")
 
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
@@ -74,7 +75,11 @@ def generate_launch_description():
     )
     
     # Description nodes and parameters
-    robot_description = {"robot_description": Command(["xacro ", LaunchConfiguration("unitree_go2_description_path")])}
+    # value_type=str keeps launch from trying to YAML-parse the URDF text.
+    robot_description = {"robot_description": ParameterValue(
+        Command(["xacro ", LaunchConfiguration("unitree_go2_description_path")]),
+        value_type=str,
+    )}
     
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
@@ -96,14 +101,23 @@ def generate_launch_description():
             {"gazebo": True},
             {"publish_joint_states": True},
             {"publish_joint_control": True},
-            {"publish_foot_contacts": False},
+            # Must be True: champ_base state_estimation uses a message_filters
+            # synchroniser over (joint_states, foot_contacts). With no contacts
+            # publisher the callback never fires, updateJointPositions() is never
+            # called, and the leg FK runs on zero joint angles - giving a
+            # fully-extended-leg robot height of thigh+calf = 0.426 m instead of
+            # the real 0.233 m, which pushes base_footprint ~0.4 m below the floor.
+            {"publish_foot_contacts": True},
             {"joint_controller_topic": "joint_group_effort_controller/joint_trajectory"},
-            {"urdf": Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')])},
+            {"urdf": ParameterValue(
+                Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')]),
+                value_type=str,
+            )},
             joints_config,
             links_config,
             gait_config,
             {"hardware_connected": False},
-            {"publish_foot_contacts": False},
+            {"publish_foot_contacts": True},
             {"close_loop_odom": True},
         ],
         remappings=[("/cmd_vel/smooth", "/cmd_vel")],
@@ -116,7 +130,10 @@ def generate_launch_description():
         parameters=[
             {"use_sim_time": use_sim_time},
             {"orientation_from_imu": True},
-            {"urdf": Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')])},
+            {"urdf": ParameterValue(
+                Command(['xacro ', LaunchConfiguration('unitree_go2_description_path')]),
+                value_type=str,
+            )},
             joints_config,
             links_config,
             gait_config,
@@ -155,38 +172,55 @@ def generate_launch_description():
             {"frequency": 50.0},
             {"two_d_mode": True},
             {"odom0": "odom/raw"},
-            {"odom0_config": [False, False, False, False, False, False, True, True, False, False, False, True, False, False, False]},
+            # [x y z  roll pitch yaw  vx vy vz  vroll vpitch vyaw  ax ay az]
+            # vyaw is False on purpose. CHAMP's leg odometry reports a badly wrong
+            # yaw rate - measured over a 20 s turn in place it gave -166 deg where
+            # the truth was +122 deg. Fused against the IMU's correct +122 the two
+            # cancelled and /odom reported -0.3 deg, i.e. "I never turned". SLAM
+            # then had to find the whole rotation by scan matching alone, which
+            # fails next to a flat wall and teleports the robot through it.
+            # Yaw and yaw rate now come from the IMU only (see imu0_config below).
+            {"odom0_config": [False, False, False, False, False, False, True, True, False, False, False, False, False, False, False]},
             {"imu0": "imu/data"},
-            {"imu0_config": [False, False, False, False, False, True, False, False, False, False, False, True, False, False, False]},
+            # [x y z  roll pitch yaw  vx vy vz  vroll vpitch vyaw  ax ay az]
+            # Absolute yaw is False, yaw RATE is True. The odom frame is meant to be
+            # locally smooth and free to drift; absolute, world-referenced heading
+            # belongs in the map frame, which is SLAM's job. Feeding the IMU's
+            # absolute yaw in here made the filter produce nonsense (-243 deg over a
+            # turn the IMU itself measured correctly as +303 deg). Integrating the
+            # gyro rate is the conventional wheel/leg-odometry setup and tracks.
+            {"imu0_config": [False, False, False, False, False, False, False, False, False, False, False, True, False, False, False]},
         ],
         remappings=[("odometry/filtered", "odom")],
     )
 
     # Go2 static frame connection (map -> odom)
-    map_to_odom_tf_node = Node(
-        package='tf2_ros',
-        name='map_to_odom_tf_node',
-        executable='static_transform_publisher',
-        parameters=[{'use_sim_time': use_sim_time}],
-        arguments=[
-            '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '0',
-            '--frame-id', 'map', '--child-frame-id', 'odom'
-        ],
-    )
+    #map_to_odom_tf_node = Node(
+    #    package='tf2_ros',
+    #    name='map_to_odom_tf_node',
+    #    executable='static_transform_publisher',
+    #    parameters=[{'use_sim_time': use_sim_time}],
+    #    arguments=[
+    #        '--x', '0', '--y', '0', '--z', '0',
+    #        '--roll', '0', '--pitch', '0', '--yaw', '0',
+    #        '--frame-id', 'map', '--child-frame-id', 'odom'
+    #    ],
+    #)
     
-    # Go2 URDF connection (base_footprint -> base_link)  
-    base_footprint_to_base_link_tf_node = Node(
-        package='tf2_ros',
-        name='base_footprint_to_base_link_tf_node',
-        executable='static_transform_publisher',
-        parameters=[{'use_sim_time': use_sim_time}],
-        arguments=[
-            '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '0',
-            '--frame-id', 'base_footprint', '--child-frame-id', 'base_link'
-        ],
-    )
+    # base_footprint -> base_link is published by base_to_footprint_ekf, which folds in
+    # the IMU roll/pitch so base_footprint stays gravity-aligned while the dog walks.
+    # A static identity transform here would fight it and tilt the laser scan.
+    # base_footprint_to_base_link_tf_node = Node(
+    #     package='tf2_ros',
+    #     name='base_footprint_to_base_link_tf_node',
+    #     executable='static_transform_publisher',
+    #     parameters=[{'use_sim_time': use_sim_time}],
+    #     arguments=[
+    #         '--x', '0', '--y', '0', '--z', '0',
+    #         '--roll', '0', '--pitch', '0', '--yaw', '0',
+    #         '--frame-id', 'base_footprint', '--child-frame-id', 'base_link'
+    #     ],
+    # )
 
     rviz2 = Node(
         package='rviz2',
@@ -204,11 +238,10 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'gz_args': [PathJoinSubstitution([
-                unitree_go2_description,
-                'worlds',
-                'default.sdf'
-            ]), ' -r']  # Add -r flag to start unpaused
+            # Uses the `world` launch argument. It was declared but ignored here -
+            # the filename was hard-coded - so `world:=/path/to/other.sdf` silently
+            # did nothing.
+            'gz_args': [LaunchConfiguration("world"), ' -r']  # -r starts unpaused
         }.items(),
     )
     
@@ -243,11 +276,13 @@ def generate_launch_description():
             '/velodyne_points/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
             '/unitree_lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
             # '/velodyne_points@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan',
-            '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
+            # Ground truth from the gz OdometryPublisher plugin. Kept off /odom so it
+            # cannot race the footprint_to_odom_ekf output; one-way (gz -> ROS).
+            '/odom/ground_truth@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/rgb_image@sensor_msgs/msg/Image@gz.msgs.Image',
             
             # ROS to Gazebo
-            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            # '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',  # unused: CHAMP drives the joints
             '/joint_group_effort_controller/joint_trajectory@trajectory_msgs/msg/JointTrajectory]gz.msgs.JointTrajectory',
         ],
     )
@@ -327,8 +362,8 @@ def generate_launch_description():
             footprint_to_odom_ekf,
             
             # TF publishers for frame connections
-            map_to_odom_tf_node,
-            base_footprint_to_base_link_tf_node,
+            #map_to_odom_tf_node,
+            #base_footprint_to_base_link_tf_node,
             
             # Controller spawners that handle the complete lifecycle
             controller_spawner_js,
