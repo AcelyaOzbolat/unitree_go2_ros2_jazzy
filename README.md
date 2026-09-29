@@ -117,37 +117,9 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 | Odometry — rotation | **0.3 %** over a full turn | `/odom` vs ground truth |
 | Odometry — translation | 2–18 %, grows with distance | the weak axis; SLAM corrects it |
 
----
-
-## The course
-
-`simple_room.sdf` is a 12 × 10 m room with walls, a central block, three partition
-walls, three pillars and three crates. Everything is a box or a cylinder — no
-meshes, no textures — so it costs almost nothing to simulate.
-
-<p align="center">
-  <img src="docs/img/course.png" alt="Top-down view of simple_room.sdf in Gazebo" width="500">
-  <br>
-  <em>The course seen from above. The robot spawns in the middle, where every
-  direction is open.</em>
-</p>
-
-It is **generated, not hand-written**.
-[`unitree_go2_description/tools/gen_simple_room.py`](unitree_go2_description/tools/gen_simple_room.py)
-emits the SDF and validates the layout before writing it:
-
-- at least **1.2 m** of clear floor between any two obstacles, so a 0.31 m-wide
-  robot can pass anywhere it fits at all
-- a clear disc around the spawn point
-- every obstacle tall enough to appear in the laser slice — a shorter prop would
-  be invisible to the 2D map while still blocking the robot
-- **no mirror symmetry**, so global relocalization cannot converge on the wrong
-  hypothesis
-
-The first run of that validator rejected six placements that looked fine by eye.
-
-To change the course, edit the `OBSTACLES` list in the generator and re-run it.
-The diagnostic tools read the same definition, so they stay in sync automatically.
+Every figure above was measured in [the course](#the-course) described below, with
+the tools in [`unitree_go2_sim/tools/`](unitree_go2_sim/tools/). None of them is an
+estimate, and none would mean much in a different room.
 
 ---
 
@@ -209,6 +181,38 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build
 source install/setup.bash
 ```
+
+---
+
+## The course
+
+`simple_room.sdf` is a 12 × 10 m room with walls, a central block, three partition
+walls, three pillars and three crates. Everything is a box or a cylinder — no
+meshes, no textures — so it costs almost nothing to simulate.
+
+<p align="center">
+  <img src="docs/img/course.png" alt="Top-down view of simple_room.sdf in Gazebo" width="500">
+  <br>
+  <em>The course seen from above. The robot spawns in the middle, where every
+  direction is open.</em>
+</p>
+
+It is **generated, not hand-written**.
+[`unitree_go2_description/tools/gen_simple_room.py`](unitree_go2_description/tools/gen_simple_room.py)
+emits the SDF and validates the layout before writing it:
+
+- at least **1.2 m** of clear floor between any two obstacles, so a 0.31 m-wide
+  robot can pass anywhere it fits at all
+- a clear disc around the spawn point
+- every obstacle tall enough to appear in the laser slice — a shorter prop would
+  be invisible to the 2D map while still blocking the robot
+- **no mirror symmetry**, so global relocalization cannot converge on the wrong
+  hypothesis
+
+The first run of that validator rejected six placements that looked fine by eye.
+
+To change the course, edit the `OBSTACLES` list in the generator and re-run it.
+The diagnostic tools read the same definition, so they stay in sync automatically.
 
 ---
 
