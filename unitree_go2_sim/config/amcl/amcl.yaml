@@ -1,0 +1,64 @@
+amcl:
+  ros__parameters:
+    # --- Frames & topics -------------------------------------------------
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    global_frame_id: map
+    scan_topic: /scan
+
+    # --- Particle filter --------------------------------------------------
+    min_particles: 500
+    max_particles: 2000
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
+    resample_interval: 1
+    save_pose_rate: 0.5
+
+    # --- Motion model -----------------------------------------------------
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    # Tuned from measured odometry rather than a blanket "double the defaults".
+    # tools/odom_quality.py on this robot: heading is excellent (0.3-0.5 % over a
+    # full turn), translation is poor and grows with distance (2 % at 1.1 m,
+    # 18 % at 1.9 m). So the rotation terms go DOWN and the translation-from-
+    # translation term goes UP. Flat 0.4 everywhere injected large rotational
+    # uncertainty into the one quantity the odometry gets right, and the particle
+    # cloud spread grew from 0.63 to 1.52 over two minutes instead of shrinking.
+    alpha1: 0.1   # rotation noise from rotation      - heading is accurate
+    alpha2: 0.2   # rotation noise from translation
+    alpha3: 0.5   # translation noise from translation - the weak axis
+    alpha4: 0.1   # translation noise from rotation   - heading is accurate
+    alpha5: 0.2   # strafe noise (used by the omni model)
+
+    update_min_d: 0.2
+    update_min_a: 0.2
+    transform_tolerance: 0.5
+    tf_broadcast: true
+
+    # --- Sensor model -----------------------------------------------------
+    laser_model_type: "likelihood_field"
+    laser_min_range: 0.5
+    laser_max_range: 20.0
+    # 180 of the scan's 361 rays. More beams per update gives the filter more to
+    # correct with, which is what keeps the cloud from drifting open.
+    max_beams: 180
+    sigma_hit: 0.2
+    z_hit: 0.5
+    z_max: 0.05
+    z_rand: 0.5
+    z_short: 0.05
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    do_beamskip: false
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+
+    always_reset_initial_pose: false
+    set_initial_pose: false
+    first_map_only: false
+
+map_server:
+  ros__parameters:
+    yaml_filename: ""   # supplied by the launch file
