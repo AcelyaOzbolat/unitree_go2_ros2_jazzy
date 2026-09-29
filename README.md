@@ -58,7 +58,7 @@ leak through in ways worth knowing about.
 
 ## What this repository adds
 
-The upstream project gets the Go2 walking in Gazebo. This fork takes it from
+The upstream project gets the Go2 walking in Gazebo. This repository takes it from
 "walks when you drive it" to "maps, knows where it is, and drives itself":
 
 - **A generated course** with a validated layout, replacing the bundled worlds
@@ -166,7 +166,7 @@ longer than the numbers suggest.
 
 The dependency list and build steps below come from the upstream project,
 [RobInLabUJI/unitree_go2_ros2_jazzy](https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy),
-with the packages this fork adds appended.
+with the packages this repository adds appended.
 
 ### 1. ROS 2 dependencies
 
@@ -181,7 +181,7 @@ sudo apt install ros-jazzy-gazebo-ros2-control \
                  ros-jazzy-velodyne-description
 ```
 
-### 2. Navigation dependencies — added by this fork
+### 2. Navigation dependencies — added here
 
 ```bash
 sudo apt install ros-jazzy-pointcloud-to-laserscan \
@@ -506,29 +506,17 @@ makes it an interesting experiment rather than a quick win.
 
 ## Credits and attribution
 
-This project builds on:
+Built on **[RobInLabUJI/unitree_go2_ros2_jazzy](https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy)**,
+which this repository started from — the robot description, the CHAMP
+integration and the installation procedure come from there.
 
-- **[RobInLabUJI/unitree_go2_ros2_jazzy](https://github.com/RobInLabUJI/unitree_go2_ros2_jazzy)** —
-  the ROS 2 Jazzy port this repository is forked from. The robot description,
-  the CHAMP integration and the installation procedure come from there.
-- **[chvmp/champ](https://github.com/chvmp/champ)** — the quadruped controller
-  (`champ`, `champ_base`, `champ_msgs`), vendored into this repository. Licensed
-  under BSD-3-Clause; see [champ/include/champ/LICENSE](champ/include/champ/LICENSE).
-- **[Unitree Robotics](https://www.unitree.com/)** — the Go2 robot model and meshes.
-- **[Nav2](https://docs.nav2.org/)** and **[slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)** —
-  the navigation and mapping stacks.
-
-### What this fork changes
-
-- Ten upstream files modified (+139 / −100 lines) — the bug fixes described in
-  [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- A generated, validated course replacing the bundled worlds
-- Six launch files for the 2D stack, four configuration sets, three RViz layouts
-- Fourteen diagnostic tools
+With **[chvmp/champ](https://github.com/chvmp/champ)** (the quadruped
+controller, vendored here, BSD-3-Clause — see
+[champ/include/champ/LICENSE](champ/include/champ/LICENSE)),
+**[Unitree Robotics](https://www.unitree.com/)** (the Go2 model),
+**[Nav2](https://docs.nav2.org/)** and
+**[slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)**.
 
 > **Licensing note:** the upstream repository carries no top-level license, so the
-> terms for derivative work are unclear and **this fork deliberately adds none of its
-> own** — putting a license on a fork of unlicensed code would claim terms that are
-> not mine to grant. The vendored CHAMP packages are BSD-3-Clause
-> ([champ/include/champ/LICENSE](champ/include/champ/LICENSE)). If you want to reuse
-> any of this, ask the upstream authors first.
+> terms for derivative work are unclear and this repository deliberately adds none
+> of its own. If you want to reuse any of this, ask the upstream authors first.
