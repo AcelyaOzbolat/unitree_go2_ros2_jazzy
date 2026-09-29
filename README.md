@@ -119,33 +119,35 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 
 ---
 
-## Quick start
+## The course
 
-Three terminals is two too many, so the stack comes up in two:
-
-```bash
-# Terminal 1 — simulator, robot, controllers
-ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
-# wait for: joint_group_effort_controller ... active   (~35 s)
-
-# Terminal 2 — localization + navigation + RViz
-ros2 launch unitree_go2_sim bringup_2d.launch.py
-```
-
-RViz opens after about 20 seconds. Press **2D Goal Pose**, click a point on the
-open grey floor, drag to set the heading, release. The robot plans and walks
-there.
+`simple_room.sdf` is a 12 × 10 m room with walls, a central block, three partition
+walls, three pillars and three crates. Everything is a box or a cylinder — no
+meshes, no textures — so it costs almost nothing to simulate.
 
 <p align="center">
-  <img src="docs/img/navigation.png" alt="Nav2 planning a path across the course" width="640">
+  <img src="docs/img/course.png" alt="Top-down view of simple_room.sdf in Gazebo" width="500">
   <br>
-  <em>A goal in the far corner. The blue line is NavFn's global plan, curving around
-  the obstacles it knows from the map; the coloured patch is the local costmap, built
-  live from the laser as the robot moves. Green dots are AMCL's particles.</em>
+  <em>The course seen from above. The robot spawns in the middle, where every
+  direction is open.</em>
 </p>
 
-Stopping everything cleanly matters more than usual here — see
-[Stale processes](#stale-processes).
+It is **generated, not hand-written**.
+[`unitree_go2_description/tools/gen_simple_room.py`](unitree_go2_description/tools/gen_simple_room.py)
+emits the SDF and validates the layout before writing it:
+
+- at least **1.2 m** of clear floor between any two obstacles, so a 0.31 m-wide
+  robot can pass anywhere it fits at all
+- a clear disc around the spawn point
+- every obstacle tall enough to appear in the laser slice — a shorter prop would
+  be invisible to the 2D map while still blocking the robot
+- **no mirror symmetry**, so global relocalization cannot converge on the wrong
+  hypothesis
+
+The first run of that validator rejected six placements that looked fine by eye.
+
+To change the course, edit the `OBSTACLES` list in the generator and re-run it.
+The diagnostic tools read the same definition, so they stay in sync automatically.
 
 ---
 
@@ -207,6 +209,39 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build
 source install/setup.bash
 ```
+
+---
+
+## Quick start
+
+Three terminals is two too many, so the stack comes up in two:
+
+```bash
+# Terminal 1 — simulator, robot, controllers
+ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
+# wait for: joint_group_effort_controller ... active   (~35 s)
+
+# Terminal 2 — localization + navigation + RViz
+ros2 launch unitree_go2_sim bringup_2d.launch.py
+```
+
+This runs on the map that ships with the repository — localization and navigation
+only. Building a map yourself is a separate step, in [Usage](#mapping-a-new-world).
+
+RViz opens after about 20 seconds. Press **2D Goal Pose**, click a point on the
+open grey floor, drag to set the heading, release. The robot plans and walks
+there.
+
+<p align="center">
+  <img src="docs/img/navigation.png" alt="Nav2 planning a path across the course" width="640">
+  <br>
+  <em>A goal in the far corner. The blue line is NavFn's global plan, curving around
+  the obstacles it knows from the map; the coloured patch is the local costmap, built
+  live from the laser as the robot moves. Green dots are AMCL's particles.</em>
+</p>
+
+Stopping everything cleanly matters more than usual here — see
+[Stale processes](#stale-processes).
 
 ---
 
@@ -291,38 +326,6 @@ without `map_server` there is no `/map` and no map frame, so every Nav2 costmap
 waits on a transform that never arrives and the lifecycle manager eventually
 gives up. Nothing in that error says "localization is not running", which is why
 they are launched together.
-
----
-
-## The course
-
-`simple_room.sdf` is a 12 × 10 m room with walls, a central block, three partition
-walls, three pillars and three crates. Everything is a box or a cylinder — no
-meshes, no textures — so it costs almost nothing to simulate.
-
-<p align="center">
-  <img src="docs/img/course.png" alt="Top-down view of simple_room.sdf in Gazebo" width="500">
-  <br>
-  <em>The course seen from above. The robot spawns in the middle, where every
-  direction is open.</em>
-</p>
-
-It is **generated, not hand-written**.
-[`unitree_go2_description/tools/gen_simple_room.py`](unitree_go2_description/tools/gen_simple_room.py)
-emits the SDF and validates the layout before writing it:
-
-- at least **1.2 m** of clear floor between any two obstacles, so a 0.31 m-wide
-  robot can pass anywhere it fits at all
-- a clear disc around the spawn point
-- every obstacle tall enough to appear in the laser slice — a shorter prop would
-  be invisible to the 2D map while still blocking the robot
-- **no mirror symmetry**, so global relocalization cannot converge on the wrong
-  hypothesis
-
-The first run of that validator rejected six placements that looked fine by eye.
-
-To change the course, edit the `OBSTACLES` list in the generator and re-run it.
-The diagnostic tools read the same definition, so they stay in sync automatically.
 
 ---
 
