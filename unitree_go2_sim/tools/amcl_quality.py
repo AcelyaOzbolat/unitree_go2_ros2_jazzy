@@ -63,7 +63,7 @@ def main():
     while "g" not in st and time.time()-t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if "g" not in st:
-        print("ground truth odometri yok - simulasyon calisiyor mu?")
+        print("no ground-truth odometry - is the simulation running?")
         return 2
 
     # Seed AMCL from the true pose. In RViz this is the "2D Pose Estimate" button;
@@ -85,10 +85,10 @@ def main():
     while init_pub.get_subscription_count() == 0 and time.time()-t0 < 15:
         rclpy.spin_once(n, timeout_sec=0.2)
     if init_pub.get_subscription_count() == 0:
-        print("/initialpose'u dinleyen yok - amcl calisiyor mu?")
+        print("nobody is listening on /initialpose - is amcl running?")
         return 2
 
-    print(f"baslangic tahmini veriliyor: x={g.position.x:.2f} y={g.position.y:.2f} "
+    print(f"seeding the initial pose: x={g.position.x:.2f} y={g.position.y:.2f} "
           f"yaw={math.degrees(yaw(g.orientation)):+.1f} deg")
     t0 = time.time()
     while "a" not in st and time.time()-t0 < 40:
@@ -99,9 +99,9 @@ def main():
             if "a" in st:
                 break
     if "a" not in st:
-        print("/amcl_pose gelmedi - amcl aktif mi? (lifecycle_manager loguna bak)")
+        print("no /amcl_pose - is amcl active? (check the lifecycle_manager log)")
         return 2
-    print(f"amcl yanit verdi ({time.time()-t0:.1f} sn sonra)")
+    print(f"amcl responded ({time.time()-t0:.1f} s later)")
 
     pos_err, yaw_err, spread = [], [], []
     turning = 0.0
@@ -138,29 +138,29 @@ def main():
         v = sorted(v)
         return v[min(len(v)-1, int(len(v)*p))]
 
-    print(f"\n{len(pos_err)} ornek, {RUN_SECONDS:.0f} sn")
-    print("konum hatasi (AMCL vs gercek)")
-    print(f"  medyan : {statistics.median(pos_err):.3f} m")
-    print(f"  %90    : {pct(pos_err, 0.90):.3f} m")
-    print(f"  en kotu: {max(pos_err):.3f} m")
-    print("yon hatasi")
-    print(f"  medyan : {statistics.median(yaw_err):.1f} deg")
-    print(f"  en kotu: {max(yaw_err):.1f} deg")
-    print("parcacik bulutu yayilimi (kovaryans)")
-    print(f"  basta  : {spread[0]:.3f}")
-    print(f"  sonda  : {spread[-1]:.3f}")
+    print(f"\n{len(pos_err)} samples, {RUN_SECONDS:.0f} s")
+    print("position error (AMCL vs truth)")
+    print(f"  median : {statistics.median(pos_err):.3f} m")
+    print(f"  p90    : {pct(pos_err, 0.90):.3f} m")
+    print(f"  worst  : {max(pos_err):.3f} m")
+    print("heading error")
+    print(f"  median : {statistics.median(yaw_err):.1f} deg")
+    print(f"  worst  : {max(yaw_err):.1f} deg")
+    print("particle cloud spread (covariance)")
+    print(f"  start  : {spread[0]:.3f}")
+    print(f"  end    : {spread[-1]:.3f}")
 
     med = statistics.median(pos_err)
     print()
     if med < 0.15 and statistics.median(yaw_err) < 5:
-        print(">>> KONUMLANDIRMA IYI")
+        print(">>> LOCALIZATION GOOD")
     elif med < 0.40:
-        print(">>> KONUMLANDIRMA ORTA - takip ediyor ama gevsek")
+        print(">>> LOCALIZATION FAIR - tracking, but loose")
     else:
-        print(">>> KONUMLANDIRMA KOTU - filtre robotu kaybediyor")
+        print(">>> LOCALIZATION BAD - the filter is losing the robot")
         if spread[-1] < spread[0]:
-            print("    bulut daralmis ama yanlis yerde: alpha degerlerini yukselt,")
-            print("    filtre odometriye oldugundan fazla guveniyor.")
+            print("    the cloud is tight but in the wrong place: raise the alpha values,")
+            print("    the filter trusts odometry more than it should.")
     rclpy.shutdown()
     return 0
 

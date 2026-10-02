@@ -26,31 +26,31 @@ while time.time() - t0 < 20 and not all(st.values()):
 
 c = st["cloud"]
 if c is None:
-    print("BULUT YOK")
+    print("NO CLOUD")
 else:
-    print(f"bulut     : {c.width} x {c.height} nokta, frame={c.header.frame_id}")
+    print(f"cloud     : {c.width} x {c.height} points, frame={c.header.frame_id}")
 
 s = st["scan"]
 if s is None:
-    print("SCAN YOK")
+    print("NO SCAN")
 else:
     r = list(s.ranges)
     fin = [x for x in r if math.isfinite(x) and s.range_min <= x <= s.range_max]
-    print(f"scan      : {len(r)} isin, frame={s.header.frame_id}")
-    print(f"  gecerli : {len(fin)} (%{100*len(fin)/max(1,len(r)):.1f})")
+    print(f"scan      : {len(r)} rays, frame={s.header.frame_id}")
+    print(f"  valid   : {len(fin)} ({100*len(fin)/max(1,len(r)):.1f} %)")
     if fin:
-        print(f"  mesafe  : min {min(fin):.2f} m / max {max(fin):.2f} m / ort {sum(fin)/len(fin):.2f} m")
-    print(f"  limitler: range_min={s.range_min:.2f} range_max={s.range_max:.2f}")
+        print(f"  range   : min {min(fin):.2f} m / max {max(fin):.2f} m / mean {sum(fin)/len(fin):.2f} m")
+    print(f"  limits  : range_min={s.range_min:.2f} range_max={s.range_max:.2f}")
 
 m = st["map"]
 if m is None:
-    print("HARITA YOK")
+    print("NO MAP")
 else:
     i = m.info
-    print(f"harita    : {i.width} x {i.height} hucre = "
+    print(f"map       : {i.width} x {i.height} cells = "
           f"{i.width*i.resolution:.1f} x {i.height*i.resolution:.1f} m")
     known = sum(1 for v in m.data if v >= 0)
     occ = sum(1 for v in m.data if v > 50)
-    print(f"  bilinen : {known} hucre, dolu {occ}")
+    print(f"  known   : {known} cells, occupied {occ}")
 
 rclpy.shutdown()

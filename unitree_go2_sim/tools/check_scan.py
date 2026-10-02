@@ -71,12 +71,12 @@ def main():
     while len(st) < 2 and time.time()-t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if len(st) < 2:
-        print("veri gelmedi"); return
+        print("no data received"); return
 
     s, g = st["s"], st["g"]
     p = g.pose.pose.position
     th = yaw(g.pose.pose.orientation)
-    print(f"gercek poz: x={p.x:.2f} y={p.y:.2f} yaw={math.degrees(th):+.1f} deg")
+    print(f"true pose: x={p.x:.2f} y={p.y:.2f} yaw={math.degrees(th):+.1f} deg")
 
     errs = []
     used = 0
@@ -91,16 +91,16 @@ def main():
         used += 1
 
     if not errs:
-        print("karsilastirilacak isin yok"); return
+        print("no rays to compare"); return
     a = sorted(abs(e) for e in errs)
     nn = len(a)
     mean_signed = sum(errs)/len(errs)
-    print(f"karsilastirilan isin : {used}")
-    print(f"  ortalama isaretli sapma : {mean_signed:+.3f} m")
-    print(f"  medyan |hata|           : {a[nn//2]:.3f} m")
-    print(f"  %90 |hata|              : {a[int(nn*0.9)]:.3f} m")
+    print(f"rays compared        : {used}")
+    print(f"  mean signed error     : {mean_signed:+.3f} m")
+    print(f"  median |error|        : {a[nn//2]:.3f} m")
+    print(f"  p90 |error|           : {a[int(nn*0.9)]:.3f} m")
     good = sum(1 for x in a if x <= 0.10)
-    print(f"  10 cm icinde            : {good}/{nn} (%{100*good/nn:.1f})")
+    print(f"  within 10 cm          : {good}/{nn} ({100*good/nn:.1f} %)")
     print()
     # Three tiers, and the median leads. A hard pass/fail at 90 % sits right in the
     # run-to-run noise band - the same healthy scan measured 92.4 % and 89.9 % on two
@@ -109,13 +109,13 @@ def main():
     # object and the surface behind it falls outside the height band.
     med = a[nn//2]
     if med <= 0.05 and good/nn > 0.85:
-        print(">>> TARAMA DOGRU - sorun SLAM tarafinda")
+        print(">>> SCAN IS CORRECT - the problem is on the SLAM side")
     elif med <= 0.15:
-        print(">>> TARAMA SINIRDA - buyuk olcude dogru, kenarlarda kayip isinlar var")
+        print(">>> SCAN IS MARGINAL - mostly right, with rays lost at the edges")
     else:
-        print(">>> TARAMA HATALI - sorun scan uretiminde")
-        print("    ipucu: medyan metre mertebesindeyse once base_footprint -> base_link")
-        print("    donusumunun yaw'ina bak; tarama o zincirle tasiniyor.")
+        print(">>> SCAN IS WRONG - the problem is in how it is produced")
+        print("    hint: if the median is on the order of metres, look first at the yaw")
+        print("    of base_footprint -> base_link; the scan rides on that chain.")
     rclpy.shutdown()
 
 

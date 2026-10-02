@@ -20,18 +20,18 @@ for r in range(h):
     for c in range(w):
         if px[r*w+c]<100:
             pts.append((ox+(c+0.5)*res, oy+(h-1-r+0.5)*res))
-print(f"dolu hucre: {len(pts)}")
+print(f"occupied cells: {len(pts)}")
 best=None
 for deg in range(-20,21,2):
     th=math.radians(deg); ct,stt=math.cos(th),math.sin(th)
     for dx in [i*0.1 for i in range(-8,9)]:
         for dy in [i*0.1 for i in range(-8,9)]:
             good=0
-            for (x,y) in pts[::7]:                    # alt orneklem, hiz icin
+            for (x,y) in pts[::7]:                    # subsample, for speed
                 X=ct*x-stt*y+dx; Y=stt*x+ct*y+dy
                 if dw(X,Y)<=2*res: good+=1
             tot=len(pts[::7])
             if best is None or good>best[0]: best=(good,tot,deg,dx,dy)
 g,t,deg,dx,dy=best
-print(f"en iyi hizalama: donus {deg:+d} deg, kayma ({dx:+.1f}, {dy:+.1f}) m")
-print(f"  o hizalamada 2 hucre icinde: {g}/{t}  (%{100*g/t:.1f})")
+print(f"best alignment: rotation {deg:+d} deg, shift ({dx:+.1f}, {dy:+.1f}) m")
+print(f"  within 2 cells at that alignment: {g}/{t}  ({100*g/t:.1f} %)")

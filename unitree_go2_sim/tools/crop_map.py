@@ -30,5 +30,5 @@ open(f"{out_base}.yaml","w").write(
     f"image: {out_base.split('/')[-1]}.pgm\nmode: trinary\nresolution: {res:.3f}\n"
     f"origin: [{nox:.3f}, {noy:.3f}, 0]\nnegate: 0\n"
     f"occupied_thresh: 0.65\nfree_thresh: 0.196\n")
-print(f"{w}x{h} -> {nw}x{nh} piksel  ({nw*res:.1f} x {nh*res:.1f} m, oran {nw/nh:.2f})")
+print(f"{w}x{h} -> {nw}x{nh} px  ({nw*res:.1f} x {nh*res:.1f} m, ratio {nw/nh:.2f})")
 print(f"origin ({ox:.3f}, {oy:.3f}) -> ({nox:.3f}, {noy:.3f})")

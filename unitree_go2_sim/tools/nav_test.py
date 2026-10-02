@@ -63,19 +63,19 @@ def main():
     while st["g"] is None and time.time()-t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if st["g"] is None:
-        print("ground truth odometri yok - simulasyon calisiyor mu?")
+        print("no ground-truth odometry - is the simulation running?")
         return 2
 
     if not client.wait_for_server(timeout_sec=20.0):
-        print("navigate_to_pose action sunucusu yok - bt_navigator aktif mi?")
+        print("no navigate_to_pose action server - is bt_navigator active?")
         return 2
 
     ok_count = 0
     for gx, gy, gyaw in GOALS:
         c = clearance(gx, gy)
-        print(f"\n=== hedef ({gx:+.1f}, {gy:+.1f})  clearance {c:.2f} m ===")
+        print(f"\n=== goal ({gx:+.1f}, {gy:+.1f})  clearance {c:.2f} m ===")
         if c < 0.45:
-            print("  hedef engele cok yakin, atlanıyor")
+            print("  goal sits too close to an obstacle, skipping")
             continue
 
         goal = NavigateToPose.Goal()
@@ -89,7 +89,7 @@ def main():
         send = client.send_goal_async(goal)
         rclpy.spin_until_future_complete(n, send, timeout_sec=15.0)
         if not send.done() or not send.result().accepted:
-            print("  hedef REDDEDILDI")
+            print("  goal REJECTED")
             continue
         handle = send.result()
         result_fut = handle.get_result_async()
@@ -115,31 +115,31 @@ def main():
         err = math.hypot(p.position.x-gx, p.position.y-gy)
         dt = time.time()-start
         if fell:
-            print(f"  DEVRILDI  x={p.position.x:.2f} y={p.position.y:.2f}")
+            print(f"  FELL OVER  x={p.position.x:.2f} y={p.position.y:.2f}")
             continue
         if not result_fut.done():
-            print(f"  ZAMAN ASIMI ({dt:.0f} sn), hedefe {err:.2f} m kalmisti")
+            print(f"  TIMED OUT ({dt:.0f} s), {err:.2f} m short of the goal")
             handle.cancel_goal_async()
             rclpy.spin_once(n, timeout_sec=2.0)
             continue
 
         status = result_fut.result().status
-        print(f"  sure          : {dt:.0f} sn")
-        print(f"  yol           : {travelled:.2f} m "
+        print(f"  time          : {dt:.0f} s")
+        print(f"  distance      : {travelled:.2f} m "
               f"(kus ucusu {math.hypot(gx-p0.x, gy-p0.y):.2f} m)")
         if plans["len"]:
-            print(f"  ilk plan      : {plans['len'][0]:.2f} m")
-            print(f"  plan ortalama : {sum(plans['len'])/len(plans['len']):.2f} m")
-            print(f"  yeniden plan  : {plans['n']} kez")
-        print(f"  hedef hatasi  : {err:.2f} m")
-        print(f"  en yakin engel: {min_clear:.2f} m "
-              f"({'CARPMA' if min_clear < 0.30 else 'carpma yok'})")
+            print(f"  first plan    : {plans['len'][0]:.2f} m")
+            print(f"  mean plan     : {sum(plans['len'])/len(plans['len']):.2f} m")
+            print(f"  replans       : {plans['n']}")
+        print(f"  goal error    : {err:.2f} m")
+        print(f"  nearest obst. : {min_clear:.2f} m "
+              f"({'COLLISION' if min_clear < 0.30 else 'no contact'})")
         names = {4: "SUCCEEDED", 5: "CANCELED", 6: "ABORTED"}
         print(f"  action status : {status} = {names.get(status, '?')}")
         if status == 4 and err < 0.4 and min_clear >= 0.30:
             ok_count += 1
 
-    print(f"\n=== {ok_count}/{len(GOALS)} hedef basarili ===")
+    print(f"\n=== {ok_count}/{len(GOALS)} goals reached ===")
     rclpy.shutdown()
     return 0 if ok_count == len(GOALS) else 1
 

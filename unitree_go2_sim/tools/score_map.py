@@ -100,25 +100,25 @@ def main(pgm, yml):
                 leaked.append((x, y))
 
     if not errs:
-        print("dolu hucre yok"); return
+        print("no occupied cells"); return
     errs.sort()
     n = len(errs)
     def pct(p): return errs[min(n-1, int(n*p))]
-    print(f"dolu hucre sayisi : {n}")
-    print(f"gercek yuzeye uzaklik:")
-    print(f"  medyan          : {pct(0.50):.3f} m")
-    print(f"  %75             : {pct(0.75):.3f} m")
-    print(f"  %90             : {pct(0.90):.3f} m")
-    print(f"  en kotu         : {errs[-1]:.3f} m")
+    print(f"occupied cells    : {n}")
+    print(f"distance to the nearest real surface:")
+    print(f"  median          : {pct(0.50):.3f} m")
+    print(f"  p75             : {pct(0.75):.3f} m")
+    print(f"  p90             : {pct(0.90):.3f} m")
+    print(f"  worst           : {errs[-1]:.3f} m")
     good = sum(1 for e in errs if e <= 2*res)
-    print(f"  2 hucre icinde  : {good}/{n}  (%{100*good/n:.1f})")
+    print(f"  within 2 cells  : {good}/{n}  ({100*good/n:.1f} %)")
     print()
     if good/n > 0.85:
-        print(">>> HARITA IYI: dolu hucrelerin buyuk cogunlugu gercek yuzeylerde")
+        print(">>> MAP GOOD: nearly every occupied cell sits on a real surface")
     elif good/n > 0.6:
-        print(">>> HARITA ORTA: gozle gorulur bulanikilik var")
+        print(">>> MAP FAIR: visibly smeared")
     else:
-        print(">>> HARITA KOTU: dolu hucreler gercek geometriyle ortusmuyor")
+        print(">>> MAP BAD: the occupied cells do not match the real geometry")
 
     # --- the other direction: what the map is missing ------------------------
     reach = int(math.ceil(COVER_TOL / res))
@@ -133,24 +133,24 @@ def main(pgm, yml):
             holes.append((x, y))
     covered = len(samples) - len(holes)
     print()
-    print(f"yuzey kapsamasi   : {covered}/{len(samples)}  "
-          f"(%{100*covered/len(samples):.1f})")
+    print(f"surface coverage  : {covered}/{len(samples)}  "
+          f"({100*covered/len(samples):.1f} %)")
     if holes:
         xs = [p[0] for p in holes]
         ys = [p[1] for p in holes]
-        print(f"  cizilmemis yuzey: x {min(xs):+.2f}..{max(xs):+.2f}  "
+        print(f"  surface missed  : x {min(xs):+.2f}..{max(xs):+.2f}  "
               f"y {min(ys):+.2f}..{max(ys):+.2f}")
 
-    print(f"oda disi bos hucre: {len(leaked)}", end="")
+    print(f"free cells outside: {len(leaked)}", end="")
     if leaked:
         xs = [p[0] for p in leaked]
         ys = [p[1] for p in leaked]
         print(f"  ({len(leaked)*res*res:.2f} m2, "
               f"x {min(xs):+.2f}..{max(xs):+.2f}  y {min(ys):+.2f}..{max(ys):+.2f})")
-        print(">>> SIZINTI VAR: bir duvarin arkasi bos isaretlenmis. Robot o "
-              "duvara range_min'den (0.5 m) yakin gecmis olabilir.")
+        print(">>> LEAK: free space marked behind a wall. The robot probably passed "
+              "closer to it than range_min (0.5 m).")
     else:
-        print("  - sizinti yok")
+        print("  - no leak")
 
 
 if __name__ == "__main__":

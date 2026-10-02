@@ -458,8 +458,7 @@ some drive the robot.
 | `crop_map.py` | trim unexplored border from a saved map, adjusting the origin with it |
 | `stop_sim.sh` | stop every simulation process |
 
-Full descriptions and healthy value ranges: [tools/README.md](unitree_go2_sim/tools/README.md)
-*(currently written in Turkish)*.
+Full descriptions and healthy value ranges: [tools/README.md](unitree_go2_sim/tools/README.md).
 
 ### Stale processes
 

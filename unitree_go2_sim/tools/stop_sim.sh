@@ -33,4 +33,4 @@ for _ in $(seq 1 40); do
   [ "$LEFT" -eq 0 ] && break
 done
 
-echo "kalan simulasyon sureci: $LEFT"
+echo "simulation processes left: $LEFT"

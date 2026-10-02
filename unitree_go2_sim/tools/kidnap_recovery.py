@@ -91,7 +91,7 @@ class Runner:
             msg.header.stamp = self.n.get_clock().now().to_msg()
             self.init.publish(msg)
             self.spin(0.5)
-        print(f"  [{label}] tohum verildi: x={x:.2f} y={y:.2f} "
+        print(f"  [{label}] seeded at: x={x:.2f} y={y:.2f} "
               f"yaw={math.degrees(th):+.0f} deg")
 
     def drive_and_measure(self, secs, label):
@@ -119,11 +119,11 @@ class Runner:
                 errs.append(math.hypot(ap.position.x - x, ap.position.y - y))
         self.cmd.publish(Twist())
         if not errs:
-            print(f"  [{label}] /amcl_pose gelmedi")
+            print(f"  [{label}] no /amcl_pose")
             return None
         first = statistics.median(errs[:max(1, len(errs)//5)])
         last = statistics.median(errs[-max(1, len(errs)//5):])
-        print(f"  [{label}] konum hatasi  ilk %20: {first:.2f} m   "
+        print(f"  [{label}] position error  first 20 %: {first:.2f} m   "
               f"son %20: {last:.2f} m   en iyi: {min(errs):.2f} m")
         return last
 
@@ -131,39 +131,39 @@ class Runner:
 def main():
     r = Runner()
     if not r.wait_data():
-        print("ground truth odometri yok - simulasyon calisiyor mu?")
+        print("no ground-truth odometry - is the simulation running?")
         return 2
 
-    print("\n--- 1) dogru tohum (temel) ---")
+    print("\n--- 1) correct seed (baseline) ---")
     x, y, th = r.true_pose()
     r.seed(x, y, th, "dogru")
     base = r.drive_and_measure(45, "dogru")
 
-    print("\n--- 2) kacirildi: yanlis tohum, kurtarma yok ---")
+    print("\n--- 2) kidnapped: wrong seed, no recovery ---")
     x, y, th = r.true_pose()
     # Somewhere else in the room, rotated - a plausible wrong guess
     r.seed(-x - 2.5, -y - 1.5, th + math.pi/2, "yanlis")
     lost = r.drive_and_measure(60, "yanlis")
 
-    print("\n--- 3) kuresel konumlandirma cagrildi ---")
+    print("\n--- 3) global localization called ---")
     if not r.global_cli.wait_for_service(timeout_sec=10.0):
-        print("  /reinitialize_global_localization yok")
+        print("  /reinitialize_global_localization is not available")
         return 2
     r.global_cli.call_async(Empty.Request())
     r.spin(2.0)
-    print("  parcaciklar tum haritaya dagitildi, suruluyor...")
+    print("  particles scattered across the map, driving...")
     recovered = r.drive_and_measure(150, "kuresel")
 
-    print("\n=== SONUC ===")
-    print(f"  dogru tohumla       : {base:.2f} m")
-    print(f"  kacirildiktan sonra : {lost:.2f} m")
-    print(f"  kuresel kurtarmadan : {recovered:.2f} m")
+    print("\n=== RESULT ===")
+    print(f"  with a correct seed : {base:.2f} m")
+    print(f"  after the kidnap    : {lost:.2f} m")
+    print(f"  after global reinit : {recovered:.2f} m")
     if recovered is not None and recovered < 0.4:
-        print("\n>>> KURTARMA BASARILI - kuresel konumlandirma robotu buldu")
+        print("\n>>> RECOVERED - global localization found the robot")
     elif recovered is not None and lost is not None and recovered < lost * 0.5:
-        print("\n>>> KISMEN TOPARLADI - daha uzun surus veya daha cok parcacik gerek")
+        print("\n>>> PARTIALLY RECOVERED - needs a longer drive or more particles")
     else:
-        print("\n>>> KURTARAMADI")
+        print("\n>>> DID NOT RECOVER")
     rclpy.shutdown()
     return 0
 

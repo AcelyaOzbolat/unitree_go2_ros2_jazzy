@@ -46,7 +46,7 @@ def main():
     while st["g"] is None and time.time()-t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if st["g"] is None:
-        print("odometri yok"); return
+        print("no odometry"); return
 
     def pose():
         p = st["g"].pose.pose
@@ -86,10 +86,10 @@ def main():
     x, y, _ = pose()
     q = st["g"].pose.pose.orientation
     roll = math.degrees(math.atan2(2*(q.w*q.x+q.y*q.z), 1-2*(q.x*q.x+q.y*q.y)))
-    print(f"bitti: x={x:.2f} y={y:.2f}  roll={roll:+.0f} "
-          f"({'DEVRILMIS' if abs(roll) > 60 else 'ayakta'})")
-    print(f"gorulen en kucuk clearance: {min_seen:.2f} m  "
-          f"({'CARPMA OLDU' if bumped else 'carpma yok'})")
+    print(f"done: x={x:.2f} y={y:.2f}  roll={roll:+.0f} "
+          f"({'FELL OVER' if abs(roll) > 60 else 'upright'})")
+    print(f"smallest clearance seen: {min_seen:.2f} m  "
+          f"({'HIT SOMETHING' if bumped else 'no contact'})")
     rclpy.shutdown()
 
 

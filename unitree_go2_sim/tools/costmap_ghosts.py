@@ -68,7 +68,7 @@ def main():
     while len(st) < 2 and time.time()-t0 < 30:
         rclpy.spin_once(n, timeout_sec=0.2)
     if len(st) < 2:
-        print("costmap veya odometri gelmedi - yigin calisiyor mu?")
+        print("no costmap or odometry - is the stack running?")
         return 2
 
     samples = []
@@ -106,27 +106,27 @@ def main():
             samples.append((0, None, 0.0, max(abs(roll), abs(pitch))))
 
     if not samples:
-        print("costmap guncellemesi alinmadi")
+        print("no costmap updates received")
         return 2
 
     counts = [s[0] for s in samples]
     withg = [s for s in samples if s[0] > 0]
-    print(f"{len(samples)} costmap guncellemesi, {RUN_SECONDS:.0f} sn")
-    print(f"hayalet hucre sayisi : ort {statistics.mean(counts):.1f}  "
+    print(f"{len(samples)} costmap updates, {RUN_SECONDS:.0f} s")
+    print(f"phantom cells        : mean {statistics.mean(counts):.1f}  "
           f"max {max(counts)}  medyan {statistics.median(counts):.0f}")
-    print(f"hayaletli guncelleme : {len(withg)}/{len(samples)} "
+    print(f"updates with phantoms: {len(withg)}/{len(samples)} "
           f"(%{100*len(withg)/len(samples):.0f})")
     if withg:
         near = [s[1] for s in withg if s[1] is not None]
-        print(f"robota en yakin hayalet: medyan {statistics.median(near):.2f} m  "
+        print(f"nearest phantom      : median {statistics.median(near):.2f} m  "
               f"min {min(near):.2f} m")
-        print(f"gercek yuzeye uzaklik  : max {max(s[2] for s in withg):.2f} m")
+        print(f"distance to a surface: max {max(s[2] for s in withg):.2f} m")
         tw = [s[3] for s in withg]
         tn = [s[3] for s in samples if s[0] == 0]
-        print(f"govde egimi, hayaletliyken : ort {statistics.mean(tw):.1f} deg")
+        print(f"body tilt, with phantoms   : mean {statistics.mean(tw):.1f} deg")
         if tn:
-            print(f"govde egimi, temizken      : ort {statistics.mean(tn):.1f} deg")
-    print(f"govde egimi genel      : ort {statistics.mean(tilts):.1f}  "
+            print(f"body tilt, clean           : mean {statistics.mean(tn):.1f} deg")
+    print(f"body tilt overall    : mean {statistics.mean(tilts):.1f}  "
           f"max {max(tilts):.1f} deg")
     rclpy.shutdown()
     return 0

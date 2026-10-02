@@ -23,7 +23,7 @@ n.create_subscription(Odometry, "/odom/ground_truth", lambda m: st.__setitem__("
 t0 = time.time()
 while st["m"] is None and time.time()-t0 < 20: rclpy.spin_once(n, timeout_sec=0.2)
 if st["m"] is None:
-    print("ground truth odometri yok - simulasyon calisiyor mu?")
+    print("no ground-truth odometry - is the simulation running?")
     rclpy.shutdown(); sys.exit(2)
 
 COURSE = []
@@ -40,10 +40,10 @@ for lin, ang, secs in COURSE:
         roll = math.degrees(math.atan2(2*(q.w*q.x+q.y*q.z), 1-2*(q.x*q.x+q.y*q.y)))
         if abs(roll) > 60:
             d, who = clearance(p.x, p.y)
-            print(f"DEVRILDI  t={time.time()-start:.0f}s  x={p.x:.2f} y={p.y:.2f} roll={roll:.0f}")
-            print(f"  en yakin engel: '{who}' mesafe {d:.2f} m")
-            print(f"  >>> {'CARPMA (0.4 m icinde)' if d < 0.4 else 'ACIK ALANDA DEVRILDI'}")
+            print(f"FELL OVER  t={time.time()-start:.0f}s  x={p.x:.2f} y={p.y:.2f} roll={roll:.0f}")
+            print(f"  nearest obstacle: '{who}' at {d:.2f} m")
+            print(f"  >>> {'COLLISION (within 0.4 m)' if d < 0.4 else 'FELL IN OPEN GROUND'}")
             pub.publish(Twist()); rclpy.shutdown(); sys.exit(1)
 p = st["m"].pose.pose.position
-print(f"AYAKTA kaldi  t={time.time()-start:.0f}s  x={p.x:.2f} y={p.y:.2f}")
+print(f"STAYED UP  t={time.time()-start:.0f}s  x={p.x:.2f} y={p.y:.2f}")
 rclpy.shutdown()

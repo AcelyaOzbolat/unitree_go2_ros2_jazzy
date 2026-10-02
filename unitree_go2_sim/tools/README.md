@@ -1,225 +1,238 @@
-# Teşhis araçları
+# Diagnostic tools
 
-Bunlar **otomatik test değil**, elle çalıştırılan teşhis araçlarıdır. `colcon test`
-bunları çalıştırmaz; hepsi **çalışan bir simülasyon** ister ve bir kısmı robotu
-gerçekten sürer.
+These are **not automated tests**. They are diagnostics you run by hand. `colcon
+test` does not run them, every one of them needs a **running simulation**, and
+some of them drive the robot.
 
 ```bash
-# Önce simülasyonu başlat
+# start the simulation first
 ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
-# Kontrolcüler aktifleşene kadar bekle (~35 sn), sonra:
-python3 unitree_go2_sim/tools/<arac>.py
+# wait for the controllers to activate (~35 s), then:
+python3 unitree_go2_sim/tools/<tool>.py
 ```
 
-## Dünyaya bağımlılık — önemli
+## World dependency — important
 
-`odom_quality`, `check_scan`, `score_map`, `align_score`, `explore`, `tour` ve
-`gait_stability` araçları `simple_room.sdf` parkurunun geometrisini bilir. Bunu
-`unitree_go2_description/tools/gen_simple_room.py` içindeki tanımdan **canlı olarak**
-okurlar; yani parkuru o üreteçten değiştirirsen araçlar kendiliğinden uyum sağlar.
+`odom_quality`, `check_scan`, `score_map`, `align_score`, `explore`, `tour` and
+`gait_stability` know the geometry of the `simple_room.sdf` course. They read it
+**live** from the definition in `unitree_go2_description/tools/gen_simple_room.py`,
+so if you change the course through that generator, the tools follow by themselves.
 
-Ama **başka bir dünyaya geçersen** (kendi yazdığın bir SDF, indirdiğin hazır bir
-ortam) bu araçlar sessizce anlamsız sonuç üretir — hâlâ simple_room'un engellerine
-göre hesap yaparlar. Öyle bir durumda yalnızca `scan_probe` ve `crop_map` geçerli
-kalır.
+But **in a different world** — an SDF you wrote, an environment you downloaded —
+these tools quietly produce meaningless numbers, because they go on measuring
+against simple_room's obstacles. Only `scan_probe` and `crop_map` stay valid in
+that case.
 
 ---
 
-## Araçlar
+## The tools
 
-### `odom_quality.py` — odometri, gerçeğe karşı
-`/odom` (EKF çıktısı) ile `/odom/ground_truth` (Gazebo'nun gerçeği) arasındaki farkı
-ölçer. Düz yürüyüş ve yerinde dönüş ayrı raporlanır, çünkü bacaklı robot ikisinde
-çok farklı davranır.
+### `tour.py` — planned coverage tour, for mapping
+Walks the room end to end in a lawnmower pattern. It inflates the world geometry
+by 0.85 m, lays waypoints on the result, and plans between them with A*.
 
-İki tuzağa karşı korumalı: engele 1 m kala durur (robot bir yere dayanıp odometri
-saymaya devam ederse hata uydurulmuş olur) ve dönüşü adım adım biriktirir
-(20 sn'lik dönüş 344° eder ve ±180°'de sararak baştan-sona karşılaştırmayı bozar).
+Use this rather than `explore.py` when you are building a map. `explore` works by
+reflex and **cannot close a room**: over two measured runs totalling twelve
+minutes it mapped only 70 % of the real surface, and both runs ended within a
+metre of where they started.
 
-Ölçülen tipik değerler: **dönüşte %0,3–0,5**, **düz yürüyüşte %2–18**. Öteleme hatası
-mesafeyle büyüyor — 1,1 m'de %1,5, 1,9 m'de %18 görüldü — ve tek koşuda ayak kaymasına
-göre epey değişiyor, bu yüzden tek bir sayıya bakma, birkaç kez çalıştır.
-
-Dönüş hatası %5'i aşıyorsa gerçek bir sorun var: `/odom/raw` (CHAMP bacak odometrisi),
-`/imu/data` ve `/odom` üçünü aynı anda karşılaştır, hata hangisinde başlıyor bul.
-Öteleme hatası SLAM tarafından düzeltilebiliyor (harita %96 doğrulukla çıktı), ama
-kalıcı olarak azaltmak istersen `gait.yaml` içindeki `odom_scaler` bunun katsayısı.
-
-### `amcl_quality.py` — konumlandırma, gerçeğe karşı
-AMCL'in tahminini Gazebo'nun gerçeğiyle karşılaştırır. Robotu çarpmadan gezdirir,
-konum ve yön hatasının yanı sıra **parçacık bulutunun yayılımını** da raporlar.
-
-Yayılım en önemli sinyal: bulut zamanla **daralmalı**. Açılıyorsa filtre güven
-kazanamıyor demektir ve genelde `alpha` değerleri fazla yüksektir. Daralıyor ama
-konum hatası büyükse filtre emin ama yanlıştır — bu ters yönde bir sorundur.
+The margin is not only about avoiding collisions. `range_min` is 0.5 m, so returns
+from anything closer are dropped and slam_toolbox goes on clearing the rays that
+travelled through it — the wall is erased and the far side is painted as floor.
+Building the margin into the plan makes that impossible by construction rather
+than by luck.
 
 ```bash
-python3 amcl_quality.py 120      # saniye
+python3 tour.py          # full tour (~13 min)
+python3 tour.py 600      # stop after 600 s, wherever it has got to
+python3 tour.py --fill   # only the pockets the full tour had to skip
 ```
 
-Bu robotta ölçülen: konum medyanı **0,11–0,12 m**, yön medyanı **4°**, yayılım
-0,61 → 0,32. `alpha`'lar ölçülen odometriye göre ayarlandı — dönüş terimleri düşük
-(heading doğru), öteleme terimi yüksek (zayıf eksen).
+**The speeds were measured, not guessed:**
 
-### `kidnap_recovery.py` — kaçırılan robot deneyi
-AMCL'i üç aşamada sınar: doğru tohum, yanlış tohum (kaçırılmış), sonra
-`/reinitialize_global_localization`. Her aşamada konum hatasını ölçer.
+| Commanded | Achieved | Body tilt |
+|---|---|---|
+| 0.15 m/s | 0.021 m/s | — |
+| 0.25 m/s | 0.085 m/s | — |
+| **0.35 m/s** | **0.141 m/s** | **12°** |
+| 0.50 m/s | 0.149 m/s | 13° — *fell over* |
+| 0.70 m/s | 0.203 m/s | 15° |
 
-Bu robotta ölçülen: doğru tohumla **0,11 m**, kaçırıldıktan sonra **2,35 m**
-(kendiliğinden toparlayamıyor), küresel konumlandırmadan sonra tekrar **0,11 m**.
+At 0.15 the gait shuffles in place and delivers 14 % of what was asked. `explore.py`
+used that speed, which is why 300 s of exploring covered about six metres of
+ground — what looked like a coverage problem was a speed problem. 0.50 is not the
+answer either: it put the robot on its back. 0.35 gives 95 % of the ground speed
+with a much calmer gait. There is also a `RAMP`: stepping from a standstill to
+full speed in one tick was itself what tipped the robot.
+
+Measured: 36 waypoints, 779 s, no contact, no falls, closest approach 0.49 m.
+
+### `explore.py` — wander without touching anything
+Drives the robot around for gait testing. It reads the clearance ahead from the
+world definition and turns towards whichever side is more open. At the end it
+reports the smallest clearance it saw and whether anything was hit.
+
+```bash
+python3 explore.py 250      # seconds
+```
+
+### `odom_quality.py` — odometry against truth
+Measures the gap between `/odom` (the EKF output) and `/odom/ground_truth`
+(Gazebo's truth). Straight walking and turning in place are reported separately,
+because a legged robot behaves very differently in the two.
+
+Guarded against two traps: it stops 1 m short of an obstacle (a robot leaning on
+something while odometry keeps counting invents an error) and it accumulates the
+turn step by step (a 20 s turn covers 344°, which wraps past ±180° and ruins any
+start-to-end comparison).
+
+Typical measured values: **0.3–0.5 % turning**, **2–18 % walking straight**. The
+translation error grows with distance — 1.5 % at 1.1 m, 18 % at 1.9 m — and varies
+a lot between runs depending on foot slip, so do not read one run as a verdict.
+
+A turning error above 5 % is a real problem: compare `/odom/raw` (CHAMP's leg
+odometry), `/imu/data` and `/odom` together and find where it starts. Translation
+error is correctable by SLAM; `odom_scaler` in `gait.yaml` is the knob if you want
+to reduce it at the source.
+
+### `amcl_quality.py` — localization against truth
+Compares AMCL's estimate with Gazebo's truth. It drives the robot without hitting
+anything and reports position and heading error alongside the **spread of the
+particle cloud**.
+
+The spread is the most important signal: the cloud should **tighten** over time. If
+it widens the filter cannot gain confidence, and the `alpha` values are usually too
+high. If it tightens but the position error stays large, the filter is confident
+and wrong — the opposite problem.
+
+```bash
+python3 amcl_quality.py 120      # seconds
+```
+
+Measured on this robot: position median **0.11–0.19 m**, heading median **4°**,
+spread 0.63 → 0.37. The `alpha` values were set from measured odometry — low on
+the rotation terms (heading is accurate), high on the translation term (the weak
+axis).
+
+### `kidnap_recovery.py` — the kidnapped robot experiment
+Tests AMCL in three stages: a correct seed, a wrong seed (kidnapped), then
+`/reinitialize_global_localization`. It measures the position error at each stage.
+
+Measured on this robot: **0.11 m** with a correct seed, **2.35 m** after the kidnap
+(it does not recover on its own), **0.11 m** again after global localization.
 
 ```bash
 python3 kidnap_recovery.py
 ```
 
-### `nav_test.py` — Nav2 hedefe gidiyor mu
-İki hedef gönderir ve her birini gerçekle ölçer: süre, kat edilen yol, planın
-uzunluğu, kaç kez yeniden planlandı, hedef hatası, **en yakın engele mesafe** ve
-robot ayakta kaldı mı.
+### `nav_test.py` — does Nav2 reach the goal
+Sends two goals and measures each against truth: time, distance travelled, plan
+length, how many times it replanned, goal error, **distance to the nearest
+obstacle**, and whether the robot stayed upright.
 
-Plan uzunluğu ile kat edilen yolu ayrı raporlaması kasıtlı: kısa bir planı takip
-edemiyorsa sorun kontrolcüde, uzun bir planı sadakatle izliyorsa sorun planlayıcı
-veya costmap'te.
+Reporting plan length separately from distance travelled is deliberate: if it
+cannot follow a short plan the problem is in the controller, and if it follows a
+long plan faithfully the problem is in the planner or the costmap.
 
-Hedefi göndermeden önce boş alanda mı diye bakar — engelin içindeki bir hedef,
-navigasyon hatası gibi görünen ama olmayan bir başarısızlık üretir.
+It checks that a goal is in open space before sending it — a goal inside an
+obstacle produces a failure that looks like a navigation fault and is not.
 
 ```bash
 python3 nav_test.py
 ```
 
-Bu robotta ölçülen: iki hedef de SUCCEEDED, en yakın engel **0,70–0,75 m**,
-hedef hatası 0,20–0,56 m. Yol hâlâ kuş uçuşunun ~3 katı.
+Measured on this robot: both goals SUCCEEDED, nearest obstacle **0.70–0.75 m**,
+goal error 0.20–0.56 m. The path is still about three times the straight line.
 
-### `costmap_ghosts.py` — hayalet engel sayımı
-Costmap'te dolu işaretlenmiş ama gerçekte boş olan hücreleri sayar. RViz'de boş
-alanda beliren ve kaybolan camgöbeği lekelerin ölçülebilir hali.
+### `costmap_ghosts.py` — counting phantom obstacles
+Counts cells marked occupied in the costmap where the world is actually empty.
+The measurable form of those cyan patches that appear and vanish in open floor.
 
-Gövde eğimini de örnekler, çünkü en olası sebep lazer diliminin eğilip uzaktaki
-zemin noktalarını banda sokmasıdır.
+It samples body tilt too, because the likeliest cause is the laser slice tipping
+and catching distant floor returns.
 
 ```bash
-# baska bir terminalde robotu gezdirirken calistir
+# run it while driving the robot from another terminal
 python3 costmap_ghosts.py 120
 ```
 
-Bu robotta ölçülen: dururken **0**, yürürken başlangıçta ort **61** (güncellemelerin
-%98'inde), `obstacle_max_range` 2,5 m'ye çekildikten sonra ort **1,1** (%10).
+Measured on this robot: **0** standing still; **61** on average while walking (in
+98 % of updates) before tuning, **1.1** (in 10 %) after `obstacle_max_range` was
+brought down to 2.5 m.
 
-Not: eşik `100` olmalı, `99` değil. Nav2 yayınında 99 = şişirme kabuğu, 100 = gerçek
-engel. 99'u saymak sıradan kabuğu binlerce hayalet gibi gösterir.
+Note: the threshold must be `100`, not `99`. In Nav2's published costmap 99 is the
+inflation shell and 100 is a real obstacle. Counting 99 reports ordinary inflation
+as thousands of phantoms.
 
-### `check_scan.py` — tarama, bilinen dünyaya karşı
-Robotun **gerçek** pozundan bilinen engel geometrisini ışın-izler ve `/scan` ile
-karşılaştırır. "Sensör verisi yanlış" ile "SLAM iyi veriyi yanlış işliyor" ayrımını
-kesinleştirir — haritalama bozukken bakılacak ilk yer burasıdır.
+### `check_scan.py` — the scan against the known world
+Ray-casts the known obstacle geometry from the robot's **true** pose and compares
+it with `/scan`. It settles the difference between "the sensor data is wrong" and
+"SLAM is mishandling good data", which is the first thing to establish when
+mapping misbehaves.
 
-Sağlıklı: ışınların %90'ından fazlası 10 cm içinde.
+Healthy: more than 90 % of rays within 10 cm.
 
-### `score_map.py` — harita, gerçeğe karşı
-Kaydedilmiş bir haritayı üç ayrı açıdan ölçer. Gözle bakmaktan çok daha güvenilir;
-ASCII önizleme kolayca yanıltır.
-
-```bash
-python3 score_map.py <harita>.pgm <harita>.yaml
-```
-
-**1. Doğruluk** — her dolu hücrenin gerçek yüzeye uzaklığı.
-Sağlıklı: hücrelerin %85'inden fazlası 2 hücre (10 cm) içinde.
-
-**2. Yüzey kapsaması** — gerçek yüzeylerin yüzde kaçının haritada karşılığı var.
-Doğruluk tek başına eksik kalıyordu: "çizdiğim şey gerçekten duvar mı" diye sorar,
-"duvarın tamamını çizdim mi" diye sormaz. İçinden ışın geçirilmiş, delik bir harita
-yalnızca birinci ölçüde pekâlâ yüksek puan alır.
-
-**3. Oda dışı boş hücre** — duvarın arkasında boş işaretlenmiş alan.
-Oda kapalı, dışarısı erişilemez; oradaki her boş hücre bir duvarın delinmiş olduğu
-anlamına gelir. En olası sebep `range_min`: robot duvara 0,5 m'den yakın geçtiğinde
-o ışınlar atılır, SLAM ise ışının gittiği yeri boş sayar. Yani duvar silinip arkası
-boşluk olarak işlenir. Çözüm haritalarken duvara yaklaşmamak — `explore.py` zaten
-1 m'lik bir pay bırakır.
-
-Ölçülen: elle sürülen ilk haritada 91 hücre (0,23 m²) sızıntı vardı.
-
-### `align_score.py` — harita döndü mü?
-`score_map` düşük puan verdiğinde çalıştır. Küçük dönüş ve kaymalar deneyerek en iyi
-hizalamayı arar. En iyi hizalamada puan yükseliyorsa harita **kaymış**; yükselmiyorsa
-harita **kendi içinde bozuk** — bu ikisi çok farklı sorunlardır.
+### `score_map.py` — a saved map against truth
+Scores a saved map three ways. Far more reliable than looking at it; an ASCII
+preview misleads easily.
 
 ```bash
-python3 align_score.py <harita>.pgm <harita>.yaml
+python3 score_map.py <map>.pgm <map>.yaml
 ```
 
-### `tour.py` — planlı kapsama turu (haritalama için)
-Odayı biçerdöver deseninde baştan sona gezer. Dünya geometrisini 0,85 m şişirip
-ızgaraya çevirir, durakları o ızgaraya dizer ve aralarını A\* ile planlar.
+**1. Accuracy** — how far each occupied cell sits from a real surface.
+Healthy: more than 85 % of cells within 2 cells (10 cm).
+
+**2. Surface coverage** — how much of the real surface got drawn at all.
+Accuracy alone was not enough: it asks "is what I drew really a wall", not "did I
+draw all of the wall". A map with a hole ray-traced straight through it still
+scores well on the first measure alone.
+
+**3. Free cells outside the room** — space marked free behind a wall.
+The room is closed and nothing outside it is reachable, so every free cell out
+there means a wall was erased. The likeliest cause is `range_min`: pass closer
+than 0.5 m and those returns are dropped while SLAM keeps clearing the rays that
+went through, so the wall disappears and the far side becomes floor. The fix is
+to keep away from walls while mapping — `tour.py` already leaves a 1 m margin.
+
+Measured: the first hand-driven map leaked 91 cells (0.23 m²).
+
+### `align_score.py` — is the map rotated?
+Run it when `score_map` gives a low score. It tries small rotations and shifts
+looking for the best alignment. If the score rises at the best alignment the map
+is **shifted**; if it does not, the map is **internally distorted** — two very
+different problems.
 
 ```bash
-python3 tour.py          # tam tur (~13 dk)
-python3 tour.py 600      # 600 sn sonra nerede kaldıysa bırak
+python3 align_score.py <map>.pgm <map>.yaml
 ```
 
-Haritalama için `explore.py` yerine bunu kullan. `explore` refleksle çalışır ve bir
-odayı **kapatamaz**: ölçülen iki koşuda toplam 12 dakikada gerçek yüzeyin ancak
-%70'ini haritaladı, ikisi de başladığı noktanın bir metre yakınında bitti.
+### `gait_stability.py` — the falling-over test
+Drives a fixed course and reports whether the robot went over, and if so **where**
+and **how far from the nearest obstacle**. That distinction matters: falling in
+open ground is a gait tuning problem, falling within 0.4 m of an obstacle is a
+collision.
 
-Şişirme payı yalnızca çarpmayı önlemek için değil. `range_min` 0,5 m olduğundan
-duvara daha yakın geçilirse o ışınlar atılır ve SLAM ışının geçtiği yeri boş sayar
-— duvar silinir, arkası zemin olur. Payı plana gömmek bunu tesadüfe değil tasarıma
-bağlar.
+### `scan_probe.py` — quick health check
+A one-shot summary of the cloud, the scan and the map: point count, valid-ray
+ratio, range limits, map size. Works independently of the world.
 
-**Hız ayarı ölçümle belirlendi**, tahminle değil:
-
-| Komut | Gerçekleşen | Gövde eğimi |
-|---|---|---|
-| 0,15 m/s | 0,021 m/s | — |
-| 0,25 m/s | 0,085 m/s | — |
-| **0,35 m/s** | **0,141 m/s** | **12°** |
-| 0,50 m/s | 0,149 m/s | 13° — *devrildi* |
-| 0,70 m/s | 0,203 m/s | 15° |
-
-`0.15` komutunda robot neredeyse yerinde sayıyor — istenenin %14'ü. `explore.py`
-bu hızı kullandığı için 300 saniyede ancak 6 metre yol yapıyordu; "kapsama sorunu"
-sanılan şey aslında buydu. `0.50` ise devirdi. `0.35` yer hızının %95'ini veriyor
-ve gait çok daha sakin kalıyor. Ayrıca `RAMP` var: dönüş bitip tam gaza tek adımda
-geçmek devrilmenin asıl sebebiydi.
-
-Ölçülen: 36 durak, 779 sn, çarpma yok, devrilme yok, en yakın geçiş 0,49 m.
-
-### `explore.py` — çarpmadan gezinti
-Haritalama için robotu parkurda gezdirir. Önündeki boşluğu dünya tanımından okur ve
-engele yaklaşınca daha açık tarafa döner. Sonunda en küçük clearance'ı ve çarpma olup
-olmadığını raporlar.
+### `crop_map.py` — trim the map
+Removes the completely unexplored border from a saved map. It shifts `origin` as
+it crops pixels — which is essential, or the map silently moves in the world.
 
 ```bash
-python3 explore.py 250      # saniye
+python3 crop_map.py input.pgm input.yaml output_basename
 ```
 
-### `gait_stability.py` — devrilme testi
-Sabit bir parkurda sürer ve robotun devrilip devrilmediğini, devrildiyse **nerede** ve
-o noktada en yakın engele **ne kadar uzakta** olduğunu yazar. Bu ayrım önemli: açık
-alanda devrilme yürüyüş ayarı sorunudur, engele 0,4 m'den yakınken devrilme çarpmadır.
+### `stop_sim.sh` — stop everything
+Kills every process belonging to the simulation. It lives in an executable file so
+that it does not match its own command line — doing the same job inline with
+`pkill -f` kills the shell running it and leaves the cleanup half finished.
 
-### `scan_probe.py` — hızlı sağlık kontrolü
-Bulut, tarama ve harita hakkında tek seferlik özet: nokta sayısı, geçerli ışın oranı,
-mesafe aralığı, harita boyutu. Dünyadan bağımsız çalışır.
-
-### `crop_map.py` — haritayı kırp
-Kaydedilmiş haritanın kenarındaki tamamen keşfedilmemiş boşluğu atar. Piksel kırparken
-`origin`'i de kaydırır — bu şart, yoksa harita dünyada sessizce kayar.
-
-```bash
-python3 crop_map.py girdi.pgm girdi.yaml cikti_taban_adi
-```
-
-### `stop_sim.sh` — her şeyi durdur
-Simülasyona ait tüm süreçleri öldürür. Kendi komut satırını eşleştirmemek için
-çalıştırılabilir dosyada tutulur — `pkill -f` ile aynı işi satır içinde yapmak, kabuğu
-kendi kendine öldürüp temizliği yarıda bırakır.
-
-Buna ihtiyaç duyulmasının sebebi gerçek: artık süreçler ölçümleri sessizce kirletir.
-Bir noktada aynı anda beş `slam_toolbox` çalışıyor ve `/scan`'e iki farklı çözünürlükte
-yayın yapılıyordu.
+The need for it is real: leftover processes quietly corrupt measurements. At one
+point five `slam_toolbox` instances were running at once, publishing to `/scan` at
+two different resolutions.
 
 ```bash
 bash unitree_go2_sim/tools/stop_sim.sh
@@ -227,11 +240,12 @@ bash unitree_go2_sim/tools/stop_sim.sh
 
 ---
 
-## Sorun ararken sıra
+## Order to work through when something is wrong
 
-1. `stop_sim.sh` — artık süreç kalmadığından emin ol, sonra tek bir yığın başlat
-2. `scan_probe.py` — veri akıyor mu, harita büyüyor mu
-3. `check_scan.py` — tarama doğru mu? Değilse SLAM'e bakma, sensör zincirine bak
-4. `odom_quality.py` — odometri doğru mu? Dönüş hatası tarama hatasından sonra gelir
-5. `tour.py` ile gez, kaydet, `score_map.py` ile puanla
-6. Puan düşükse `align_score.py` — kayma mı, bozulma mı
+1. `stop_sim.sh` — make sure nothing is left over, then start one stack
+2. `scan_probe.py` — is data flowing, is the map growing
+3. `check_scan.py` — is the scan correct? If not, do not look at SLAM, look at the
+   sensor chain
+4. `odom_quality.py` — is odometry correct? Turning error comes after scan error
+5. drive with `tour.py`, save, and score it with `score_map.py`
+6. if the score is low, `align_score.py` — shifted, or distorted?

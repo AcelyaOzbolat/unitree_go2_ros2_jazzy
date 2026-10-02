@@ -714,7 +714,7 @@ cell out there should stay unknown:
 python3 unitree_go2_sim/tools/score_map.py <map>.pgm <map>.yaml
 ```
 
-Read the last line. `oda disi bos hucre: 0` is clean; anything else names the
+Read the last line. `free cells outside: 0` is clean; anything else names the
 leak's extent. Measured on the first hand-driven map: **91 cells, 0.23 m²**,
 just outside the west wall.
 

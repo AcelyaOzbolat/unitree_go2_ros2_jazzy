@@ -232,13 +232,13 @@ if __name__ == "__main__":
     import sys
     errs = check()
     if errs:
-        print("LAYOUT REDDEDILDI:")
+        print("LAYOUT REJECTED:")
         for e in errs:
             print("  -", e)
         sys.exit(1)
-    print(f"Layout OK: {len(OBSTACLES)} engel, min bosluk {MIN_GAP} m, "
-          f"oda {2*RX:.0f} x {2*RY:.0f} m")
+    print(f"Layout OK: {len(OBSTACLES)} obstacles, min gap {MIN_GAP} m, "
+          f"room {2*RX:.0f} x {2*RY:.0f} m")
     out = sys.argv[1] if len(sys.argv) > 1 else "simple_room.sdf"
     with open(out, "w") as f:
         f.write(HEADER + build() + FOOTER)
-    print("yazildi:", out)
+    print("written:", out)

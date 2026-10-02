@@ -282,8 +282,8 @@ def main():
         # tighter margin. The difference is what it never visited.
         main_reach = reachable(free_grid(CLEAR_R))
         pockets = use_margin(FILL_R, only_outside=main_reach)
-        print(f"--fill: {CLEAR_R} m payla atlanan {len(pockets)} hucre, "
-              f"{FILL_R} m payla gezilecek")
+        print(f"--fill: {len(pockets)} cells skipped at {CLEAR_R} m, "
+              f"visiting them at {FILL_R} m")
     rclpy.init()
     n = rclpy.create_node("tour")
     pub = n.create_publisher(Twist, "/cmd_vel", 10)
@@ -294,7 +294,7 @@ def main():
     while st["g"] is None and time.time() - t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if st["g"] is None:
-        print("odometri yok - simulasyon calisiyor mu?")
+        print("no odometry - is the simulation running?")
         return
 
     def pose():
@@ -307,7 +307,7 @@ def main():
     # Walk out of the corner first.
     x, y, th = pose()
     if clearance(x, y) < CLEAR_R:
-        print(f"baslangic clearance {clearance(x, y):.2f} m - once acilip cikiliyor")
+        print(f"starting clearance {clearance(x, y):.2f} m - backing out first")
         t_esc = time.time()
         msg = Twist()
         while time.time() - t_esc < 40:
@@ -328,19 +328,19 @@ def main():
             rclpy.spin_once(n, timeout_sec=0.05)
         pub.publish(Twist())
         x, y, _ = pose()
-        print(f"  cikildi, clearance {clearance(x, y):.2f} m")
+        print(f"  clear now, clearance {clearance(x, y):.2f} m")
 
     if pockets is not None:
         wps = safest_waypoints(pockets)
         if not wps:
-            print("atlanmis bolge kalmamis - yapacak is yok")
+            print("no skipped area left - nothing to do")
             rclpy.shutdown()
             return
-        print(f"{len(wps)} durak (en genis yerlerden secildi), "
-              f"guvenlik payi {FILL_R} m")
+        print(f"{len(wps)} waypoints (chosen at the widest points), "
+              f"margin {FILL_R} m")
     else:
         wps = waypoints()
-        print(f"{len(wps)} durak, aralik {STEP} m, guvenlik payi {CLEAR_R} m")
+        print(f"{len(wps)} waypoints, spacing {STEP} m, margin {CLEAR_R} m")
 
     start = time.time()
     msg = Twist()
@@ -350,7 +350,7 @@ def main():
 
     for wi, target in enumerate(wps):
         if time.time() - start > budget:
-            print("sure doldu")
+            print("out of time")
             break
         x, y, _ = pose()
         route = plan(nearest_free(x, y), cell(*target))
@@ -392,18 +392,18 @@ def main():
             break
         done += 1
         if done % 5 == 0:
-            print(f"  {done}/{len(wps)} durak, {time.time()-start:.0f} sn")
+            print(f"  {done}/{len(wps)} waypoints, {time.time()-start:.0f} s")
 
     pub.publish(Twist())
     x, y, _ = pose()
     q = st["g"].pose.pose.orientation
     roll = math.degrees(math.atan2(2 * (q.w * q.x + q.y * q.z),
                                    1 - 2 * (q.x * q.x + q.y * q.y)))
-    print(f"bitti: {done}/{len(wps)} durak, {time.time()-start:.0f} sn")
-    print(f"son konum x={x:.2f} y={y:.2f}  roll={roll:+.0f} "
-          f"({'DEVRILMIS' if abs(roll) > 60 else 'ayakta'})")
-    print(f"gorulen en kucuk clearance: {min_seen:.2f} m  "
-          f"({'COK YAKIN GECTI' if aborted else 'guvenli'})")
+    print(f"done: {done}/{len(wps)} waypoints, {time.time()-start:.0f} s")
+    print(f"final pose x={x:.2f} y={y:.2f}  roll={roll:+.0f} "
+          f"({'FELL OVER' if abs(roll) > 60 else 'upright'})")
+    print(f"smallest clearance seen: {min_seen:.2f} m  "
+          f"({'CAME TOO CLOSE' if aborted else 'safe'})")
     rclpy.shutdown()
 
 

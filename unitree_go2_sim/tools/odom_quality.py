@@ -52,7 +52,7 @@ def main():
     while len(st) < 2 and time.time()-t0 < 25:
         rclpy.spin_once(n, timeout_sec=0.2)
     if len(st) < 2:
-        print("odometri gelmedi"); return
+        print("no odometry received"); return
 
     def snap():
         o, g = st["o"].pose.pose, st["g"].pose.pose
@@ -65,31 +65,31 @@ def main():
             pub.publish(Twist()); rclpy.spin_once(n, timeout_sec=0.05)
 
     p = st["g"].pose.pose.position
-    print(f"baslangic clearance: {clearance(p.x, p.y):.2f} m")
+    print(f"starting clearance: {clearance(p.x, p.y):.2f} m")
 
     # --- straight leg, aborted before touching anything -------------------
     settle()
     o0, g0 = snap()
     msg = Twist(); msg.linear.x = 0.15
     end = time.time() + 30
-    stopped = "sure doldu"
+    stopped = "time limit"
     while time.time() < end:
         pub.publish(msg); rclpy.spin_once(n, timeout_sec=0.05)
         p = st["g"].pose.pose.position
         if clearance(p.x, p.y) < STOP_DIST:
-            stopped = "engele yaklasti"; break
+            stopped = "obstacle ahead"; break
     settle()
     o1, g1 = snap()
     od = math.hypot(o1[0]-o0[0], o1[1]-o0[1])
     gd = math.hypot(g1[0]-g0[0], g1[1]-g0[1])
-    print("--- 1) duz yuruyus ---")
-    print(f"  durma sebebi: {stopped}")
-    print(f"  odometri : {od:.3f} m")
-    print(f"  gercek   : {gd:.3f} m")
+    print("--- 1) walking straight ---")
+    print(f"  stopped because: {stopped}")
+    print(f"  odometry : {od:.3f} m")
+    print(f"  truth    : {gd:.3f} m")
     if gd > 0.2:
-        print(f"  HATA     : {abs(od-gd):.3f} m  (%{100*abs(od-gd)/gd:.1f})")
+        print(f"  ERROR    : {abs(od-gd):.3f} m  ({100*abs(od-gd)/gd:.1f} %)")
     else:
-        print("  (cok az ilerledi, oran anlamsiz)")
+        print("  (moved too little for a percentage to mean anything)")
 
     # --- turn in place --------------------------------------------------
     # Yaw is accumulated step by step rather than compared end to end: a 20 s
@@ -107,12 +107,12 @@ def main():
         g_acc += dyaw(g_prev[2], g_now[2])
         o_prev, g_prev = o_now, g_now
     settle()
-    print("--- 2) yerinde donus (birikimli) ---")
-    print(f"  odometri : {o_acc:+.1f} deg")
-    print(f"  gercek   : {g_acc:+.1f} deg")
-    print(f"  HATA     : {abs(o_acc-g_acc):.1f} deg  (%{100*abs(o_acc-g_acc)/max(1,abs(g_acc)):.1f})")
+    print("--- 2) turning in place (accumulated) ---")
+    print(f"  odometry : {o_acc:+.1f} deg")
+    print(f"  truth    : {g_acc:+.1f} deg")
+    print(f"  ERROR    : {abs(o_acc-g_acc):.1f} deg  ({100*abs(o_acc-g_acc)/max(1,abs(g_acc)):.1f} %)")
     p = st["g"].pose.pose.position
-    print(f"  bitis clearance: {clearance(p.x, p.y):.2f} m")
+    print(f"  final clearance: {clearance(p.x, p.y):.2f} m")
 
     pub.publish(Twist())
     rclpy.shutdown()
