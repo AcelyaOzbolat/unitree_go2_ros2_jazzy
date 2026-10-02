@@ -90,7 +90,7 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 
 | Capability | Status | Notes |
 |---|---|---|
-| Gazebo simulation + CHAMP gait | ✅ | walks at 0.15–0.20 m/s |
+| Gazebo simulation + CHAMP gait | ✅ | ~0.14 m/s on the ground |
 | IMU | ✅ | 100 Hz |
 | 3D LiDAR (Velodyne VLP-16) | ✅ | 440 × 16 points, 10 Hz |
 | RGB camera | ✅ | 640 × 480, 10 Hz |
@@ -276,14 +276,28 @@ localization you have not checked makes Nav2 look broken.
 ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
 # Terminal 2
 ros2 launch unitree_go2_sim slam_2d.launch.py
-# Terminal 3 — drive
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.3 -p turn:=0.4
 ```
 
-Drive a full loop and return to where you started — that closure is what lets
-slam_toolbox correct accumulated drift. Stay **more than 0.6 m from walls**: the
-Velodyne cannot see closer than 0.5 m, so a wall you press against disappears
-from the scan and the map leaks through it.
+Then drive, in a third terminal, either way:
+
+```bash
+# by hand
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.3 -p turn:=0.4
+
+# or let the planned tour do it (~13 min)
+python3 unitree_go2_sim/tools/tour.py
+```
+
+Driving it yourself gives the better map — you know which corner still looks
+unfinished and the tour does not. `tour.py` is the safer one: it plans over the
+world geometry inflated by 0.85 m, so it cannot get close enough to a wall to
+damage the map, and it covers the room methodically instead of wandering.
+
+Either way, stay **more than 0.6 m from walls** and drive a full loop back to
+where you started. The loop closure is what lets slam_toolbox correct accumulated
+drift. The distance matters because the Velodyne cannot see closer than 0.5 m: a
+wall you press against vanishes from the scan, and SLAM paints the floor behind
+it as open space.
 
 Save when done:
 
@@ -532,8 +546,12 @@ makes it an interesting experiment rather than a quick win.
   goal error reaches about 0.5 m.
 - **LiDAR blind zone.** 0.5 m minimum range is structural. The static costmap layer
   works around it; nothing removes it.
-- **Gait stability.** Fine at 0.15 m/s for minutes at a time; higher speeds and
-  hard turns can put the robot on its back.
+- **Gait stability.** Steady for a quarter of an hour at a `/cmd_vel` of 0.3 m/s;
+  0.5 has put the robot on its back, as has going straight from forward motion
+  into a hard turn.
+- **Commanded speed is not achieved speed.** 0.15 m/s commanded delivers about
+  0.021 m/s on the ground, and 0.35 delivers 0.141. Anything that drives this
+  robot has to be tuned against what it actually does, not what it was asked for.
 
 ---
 

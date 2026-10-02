@@ -41,12 +41,6 @@ from gen_simple_room import OBSTACLES, aabb, RX, RY  # noqa: E402
 CLEAR_R = 0.85      # keep this far from every surface - well outside range_min
 RES = 0.10          # planning grid
 STEP = 1.00         # spacing between lawnmower waypoints
-# --fill threads corridors roughly 1.2-1.5 m wide, whose only safe line is the
-# centre. On the 1.00 m lattice those centres fall between waypoints: the gap
-# south of the crate at x +3.40..+4.60 is safe at y=-4.40 and 0.20 m from the
-# crate at y=-4.00, so the tour produced no waypoint there at all and the face
-# stayed unmapped. Half the spacing lands on the centre lines.
-STEP_FILL = 0.50
 REACH = 0.28        # a waypoint counts as reached within this
 # Commanded speed is not achieved speed, and the gap is enormous at the low end.
 # Measured against /odom/ground_truth on this robot:

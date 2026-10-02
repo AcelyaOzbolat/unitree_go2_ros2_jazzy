@@ -193,7 +193,7 @@ The room is closed and nothing outside it is reachable, so every free cell out
 there means a wall was erased. The likeliest cause is `range_min`: pass closer
 than 0.5 m and those returns are dropped while SLAM keeps clearing the rays that
 went through, so the wall disappears and the far side becomes floor. The fix is
-to keep away from walls while mapping — `tour.py` already leaves a 1 m margin.
+to keep away from walls while mapping — `tour.py` holds 0.85 m by construction.
 
 Measured: the first hand-driven map leaked 91 cells (0.23 m²).
 
