@@ -165,11 +165,13 @@ sudo apt install ros-jazzy-pointcloud-to-laserscan \
                  ros-jazzy-teleop-twist-keyboard
 ```
 
-### 3. Clone
+### 3. Create the workspace and clone
 
 ```bash
+source /opt/ros/jazzy/setup.bash      # every new terminal needs this line
+mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
-git clone https://github.com/<your-username>/unitree_go2_ros2_jazzy.git
+git clone https://github.com/AcelyaOzbolat/unitree_go2_ros2_jazzy.git
 ```
 
 ### 4. Resolve and build
@@ -178,9 +180,14 @@ git clone https://github.com/<your-username>/unitree_go2_ros2_jazzy.git
 cd ~/ros2_ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
-colcon build
+colcon build --symlink-install
 source install/setup.bash
 ```
+
+Every terminal you open needs both `source` lines — the ROS 2 one and the
+workspace one. Forgetting them is the most common reason a command "does not
+exist". `--symlink-install` means edits to configs, launch files and RViz
+layouts take effect without rebuilding.
 
 ---
 
@@ -211,8 +218,19 @@ emits the SDF and validates the layout before writing it:
 
 The first run of that validator rejected six placements that looked fine by eye.
 
-To change the course, edit the `OBSTACLES` list in the generator and re-run it.
-The diagnostic tools read the same definition, so they stay in sync automatically.
+To change the course, edit the `OBSTACLES` list in the generator and re-run it over
+the world it produces:
+
+```bash
+cd ~/ros2_ws/src/unitree_go2_ros2_jazzy
+python3 unitree_go2_description/tools/gen_simple_room.py \
+  unitree_go2_description/worlds/simple_room.sdf
+cd ~/ros2_ws && colcon build --packages-select unitree_go2_description
+```
+
+It validates first and writes nothing if the layout breaks one of the rules above,
+so a bad edit cannot quietly produce a course the robot gets stuck in. The
+diagnostic tools read the same definition, so they stay in sync automatically.
 
 ---
 
@@ -270,8 +288,15 @@ from the scan and the map leaks through it.
 Save when done:
 
 ```bash
-ros2 run nav2_map_server map_saver_cli -f <path>/unitree_go2_sim/maps/my_map
+ros2 run nav2_map_server map_saver_cli -f $HOME/my_map
 ```
+
+That writes `my_map.pgm` and `my_map.yaml`. Point the next stage at it with
+`map:=$HOME/my_map.yaml` — the launch files take an absolute path.
+
+To make it the default instead of the map that ships here, save it into
+`unitree_go2_sim/maps/` and rebuild. Maps are installed rather than read from the
+source tree, so a new file there stays invisible until `colcon build` runs again.
 
 <p align="center">
   <img src="docs/img/mapping.png" alt="The finished 2D map in RViz" width="640">
