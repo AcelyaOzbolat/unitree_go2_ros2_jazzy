@@ -62,22 +62,23 @@ The upstream project gets the Go2 walking in Gazebo. This repository takes it fr
 "walks when you drive it" to "maps, knows where it is, and drives itself":
 
 - **A generated course** with a validated layout, replacing the bundled worlds
-- **2D SLAM** producing a map that is scored against the real geometry, not judged by eye
+- **2D SLAM** producing a saved map of the course
 - **AMCL localization**, including recovery from the kidnapped-robot case
 - **Nav2 navigation** that reaches goals without collisions or falls
-- **Fourteen diagnostic tools** that measure each of the above against ground truth
+- **Fourteen diagnostic tools** that check each of the above against the
+  simulator's ground truth
 
-Every number in this README was measured, not estimated. The tooling that produced
-them ships with the repo.
+That last point is the method the rest of this README rests on, and it is worth
+more than any single figure in it.
 
-### And a record of everything that went wrong
+### A record of what went wrong
 
 Getting a legged robot to map and navigate is not a matter of launching the right
 nodes. Most of the work was finding out *why* things that looked correct were
 wrong: a map that never grew, a laser scan silently rotated by 100°, a particle
 filter that got less certain the longer it ran.
 
-📍 **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — eighteen problems, each
+**[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — twenty problems, each
 with the symptom you actually see, the command that identifies it, and the fix.
 
 If you are building something similar and stuck, start there. Several of these
@@ -98,7 +99,7 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 | Localization on a saved map | ✅ | `nav2_amcl` |
 | Global relocalization after kidnap | ✅ | `/reinitialize_global_localization` |
 | Autonomous navigation to a goal | ✅ | Nav2, no collisions, no falls |
-| Diagnostic tooling | ✅ | 14 tools measuring against ground truth |
+| Diagnostic tooling | ✅ | 14 scripts under `unitree_go2_sim/tools/` |
 | 4D LiDAR (Unitree L1) | ⚠️ | publishes, nothing consumes it |
 | Depth camera | ❌ | see [integrable](#not-included-but-integrable) |
 | 3D obstacle avoidance | ❌ | costmaps use a 2D slice |
@@ -117,9 +118,8 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 | Odometry — rotation | **0.3 %** over a full turn | `/odom` vs ground truth |
 | Odometry — translation | 2–18 %, grows with distance | the weak axis; SLAM corrects it |
 
-Every figure above was measured in [the course](#the-course) described below, with
-the tools in [`unitree_go2_sim/tools/`](unitree_go2_sim/tools/). None of them is an
-estimate, and none would mean much in a different room.
+All of these were taken in [the course](#the-course) below, and would mean
+something different in another room.
 
 ---
 
@@ -228,12 +228,13 @@ ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
 
 # Terminal 2 — drive it
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
-  --ros-args -p speed:=0.15 -p turn:=0.25
+  --ros-args -p speed:=0.3 -p turn:=0.4
 ```
 
 The speed arguments are deliberate. `gait.yaml` caps the robot at 0.3 m/s and
 0.5 rad/s, and teleop's defaults (0.5 / 1.0) exceed both — CHAMP then clips the
-command and the gait degrades. Stop before turning; stepping straight from
+command and the gait degrades. These are the values `tour.py` drives at for a
+quarter of an hour at a stretch without falling. Stop before turning; stepping straight from
 forward motion into a hard turn is what puts this robot on its back.
 
 From here, [Usage](#usage) goes through the stack one stage at a time: build a
@@ -258,7 +259,7 @@ ros2 launch unitree_go2_sim unitree_go2_launch.py rviz:=false
 # Terminal 2
 ros2 launch unitree_go2_sim slam_2d.launch.py
 # Terminal 3 — drive
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.15 -p turn:=0.25
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.3 -p turn:=0.4
 ```
 
 Drive a full loop and return to where you started — that closure is what lets
@@ -345,9 +346,10 @@ they are launched together.
 | **IMU** | 100 Hz, Gaussian noise on rates and accelerations | `/imu/data` | attitude and yaw rate for both EKFs |
 | **Ground-truth odometry** | Gazebo plugin, 50 Hz | `/odom/ground_truth` | **measurement only** — never fed to the stack |
 
-That last row is the backbone of the whole approach. Because the simulator knows
+That last row is the backbone of the whole approach: because the simulator knows
 where the robot really is, every component can be scored against truth instead of
-judged by eye. It is deliberately kept off the control path.
+judged by eye. It is bridged read-only and never reaches the control path, so
+nothing in the stack can quietly come to depend on knowing the answer.
 
 ### Software stack
 
@@ -410,8 +412,8 @@ that chain producing symptoms that looked like SLAM, navigation or sensor faults
 ## Diagnostic tools
 
 Fourteen scripts under
-[`unitree_go2_sim/tools/`](unitree_go2_sim/tools/) measure the stack against
-ground truth. They are **not** unit tests — each needs a running simulation, and
+[`unitree_go2_sim/tools/`](unitree_go2_sim/tools/), one per question worth asking
+of the stack. They are **not** unit tests — each needs a running simulation, and
 some drive the robot.
 
 | Tool | Answers |
