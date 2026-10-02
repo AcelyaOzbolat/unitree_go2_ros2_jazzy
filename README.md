@@ -62,8 +62,8 @@ The upstream project gets the Go2 walking in Gazebo. This repository takes it fr
 "walks when you drive it" to "maps, knows where it is, and drives itself":
 
 - **A generated course** with a validated layout, replacing the bundled worlds
-- **2D SLAM** producing a map that scores 99.4 % against the real geometry
-- **AMCL localization** at 0.11 m median error, with kidnapped-robot recovery
+- **2D SLAM** producing a map that is scored against the real geometry, not judged by eye
+- **AMCL localization**, including recovery from the kidnapped-robot case
 - **Nav2 navigation** that reaches goals without collisions or falls
 - **Fourteen diagnostic tools** that measure each of the above against ground truth
 
@@ -94,9 +94,9 @@ bugs produce symptoms that point at the wrong subsystem entirely.
 | 3D LiDAR (Velodyne VLP-16) | ✅ | 440 × 16 points, 10 Hz |
 | RGB camera | ✅ | 640 × 480, 10 Hz |
 | 2D laser scan from the 3D cloud | ✅ | `pointcloud_to_laserscan` |
-| 2D SLAM | ✅ | `slam_toolbox`, map scores **99.4 %** |
-| Localization on a saved map | ✅ | AMCL, **0.11 m** median error |
-| Global relocalization after kidnap | ✅ | recovers to 0.11 m |
+| 2D SLAM | ✅ | `slam_toolbox`, async |
+| Localization on a saved map | ✅ | `nav2_amcl` |
+| Global relocalization after kidnap | ✅ | `/reinitialize_global_localization` |
 | Autonomous navigation to a goal | ✅ | Nav2, no collisions, no falls |
 | Diagnostic tooling | ✅ | 14 tools measuring against ground truth |
 | 4D LiDAR (Unitree L1) | ⚠️ | publishes, nothing consumes it |
@@ -275,9 +275,8 @@ ros2 run nav2_map_server map_saver_cli -f <path>/unitree_go2_sim/maps/my_map
 <p align="center">
   <img src="docs/img/mapping.png" alt="The finished 2D map in RViz" width="640">
   <br>
-  <em>The finished map in RViz. Red points are the live 2D scan, sitting on the
-  occupancy grid slam_toolbox built — 99.4 % of its occupied cells are within 10 cm
-  of a real surface, and every surface in the room is represented.</em>
+  <em>The finished map in RViz. The red points are the live 2D scan, lying on the
+  occupancy grid slam_toolbox has built from it.</em>
 </p>
 
 ### 2. Localization only
